@@ -1,0 +1,846 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+photo-reframe -- Slideshow with static pan and zoom of images.
+
+Show images from a directory, reading a playlist with
+filenames and geometries to zoom/crop images on-the-fly.
+Each playlist entry is of the type:
+
+    IMG_6605.JPG|2829x1591+804+781
+
+Playlist can be generated interactively reframing each image
+on the screen. Screen aspect ratio defaults to 16:9, but can
+be changed by command line options.
+
+Press F1 or ? for a list of keyboard shortcuts.
+"""
+
+# For Qt5 doc see: https://doc.qt.io/qt-5/qmainwindow.html
+
+import argparse
+import os
+import os.path
+import random
+import re
+import subprocess
+import sys
+import time
+
+from collections import deque
+from PIL import Image, ExifTags
+
+from PyQt5 import QtCore
+from PyQt5.QtGui import QPixmap, QColor, QTransform, QPalette, QCursor
+from PyQt5.QtWidgets import QMainWindow, QApplication, QGraphicsScene, QGraphicsView, QFrame, QMessageBox
+
+__author__ = "Niccolo Rigacci"
+__copyright__ = "Copyright 2019 Niccolo Rigacci <niccolo@rigacci.org>"
+__license__ = "GPLv3-or-later"
+__email__ = "niccolo@rigacci.org"
+__version__ = "0.1.0"
+
+# Window title
+APP_TITLE = u'Photo Reframe App'
+
+# Command line options defaults.
+DEFAULT_FRAME_RATIO = '16x9'
+DEFAULT_SLIDE_TIME = 4.0
+
+PLAYLIST = 'playlist.txt'
+GEOMETRY_RE = '(\d+)x(\d+)\+(\d+)\+(\d+)'
+EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff')
+
+# Window's app default size (desktop space percentage).
+WIN_X = 0.01
+WIN_Y = 0.06
+WIN_WIDTH = 0.64
+WIN_HEIGHT = 0.68
+
+# Padding around image rectangle. Will be zero at full-screen.
+IMG_PADDING_X = 6
+IMG_PADDING_Y = 6
+
+GEOMETRY_FLAG_SET = '#7cff7c'      # Green
+GEOMETRY_FLAG_NOTSET = '#ff7c7c'   # Red
+GEOMETRY_FLAG_UNKNOWN = '#ffff7c'  # Yellow
+GEOMETRY_FLAG_BLACK = '#000000'    # Black used in full-screen
+
+# Search the Exif numeric key for Orientation tag.
+ORIENTATION_TAG = None
+for tag in ExifTags.TAGS.keys():
+    if ExifTags.TAGS[tag] == 'Orientation':
+        ORIENTATION_TAG = tag
+        break
+if ORIENTATION_TAG == None:
+    print(u'ERROR: Exif Orientation tag not found in PIL library')
+    sys.exit(1)
+
+# Exif Orientation tags handled by this app.
+EXIF_ORIENTATION_TAGS = (1, 3, 6, 8)
+
+# Tag    Row Zero    Column Zero
+# -------------------------------
+# 1      top         left side
+# 2      top         right side
+# 3      bottom      right side
+# 4      bottom      left side
+# 5      left side   top
+# 6      right side  top
+# 7      right side  bottom
+# 8      left side   bottom
+
+# Rotation required by Exif Orientation tag.
+EXIF_ROTATE = { 1: 0, 3: -180, 6: -270, 8: -90 }
+
+
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+class getImageState():
+    """ Calculate the geometry upon zoom and pan of the image view """
+
+    def __init__(self, mainWindow):
+        """ Do the math, rounded to the nearest integer """
+        self.image_width = mainWindow.image_width
+        self.image_height = mainWindow.image_height
+        self.scene_width = mainWindow.scene.width()
+        self.scene_height = mainWindow.scene.height()
+        self.view_width = mainWindow.view.size().width()
+        self.view_height = mainWindow.view.size().height()
+        self.frame_ratio_width = mainWindow.frame_ratio_width
+        self.frame_ratio_height = mainWindow.frame_ratio_height
+        self.horizontal_scroll = mainWindow.view.horizontalScrollBar().value()
+        self.vertical_scroll = mainWindow.view.verticalScrollBar().value()
+        self.geom_width = int(round(self.view_width / mainWindow.zoom))
+        self.geom_height = int(round(self.view_height / mainWindow.zoom))
+        self.geom_x = int(round(self.horizontal_scroll / mainWindow.zoom))
+        self.geom_y = int(round(self.vertical_scroll / mainWindow.zoom))
+        # Scrollbars values have different min/max range when Exif-rotated.
+        if mainWindow.exif_orientation_tag == 6:
+            self.geom_x += self.image_width
+        elif mainWindow.exif_orientation_tag == 8:
+            self.geom_y += self.image_height
+        elif mainWindow.exif_orientation_tag == 3:
+            self.geom_x += self.image_width
+            self.geom_y += self.image_height
+
+
+    def fixGeometry(self):
+        """ Fix rounding errors in geometry calculation """
+        # Force the geometry size into the image size.
+        if self.geom_x < 0:
+            self.geom_x = 0
+        if self.geom_y < 0:
+            self.geom_y = 0
+        if self.geom_width > self.image_width:
+            self.geom_width = self.image_width
+        if self.geom_height > self.image_height:
+            self.geom_height = self.image_height
+        # Force aspect ratio, but warn if corrected.
+        proper_height = int(float(self.geom_width) / self.frame_ratio_width * self.frame_ratio_height)
+        if self.geom_height != proper_height:
+            print(u'Adjusting geometry height: %d => %d' % (self.geom_height, proper_height))
+            self.geom_height = proper_height
+        # Force the geometry offset to not exceed the image size.
+        if self.geom_width + self.geom_x > self.image_width:
+            self.geom_x = self.image_width - self.geom_width
+        if self.geom_height + self.geom_y > self.image_height:
+            self.geom_y = self.image_height - self.geom_height
+
+
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+class photoView(QGraphicsView):
+    """ Widget used to displaying the scene, i.e. just the image """
+
+    def wheelEvent(self, event):
+        """ Moving the mouse wheel: do zoom and invalidate the geometry flag """
+        moose = event.angleDelta().y() / 120
+        if moose > 0:
+            myMainWindow.zoomIn()
+        elif moose < 0:
+            myMainWindow.zoomOut()
+        myMainWindow.showGeometryFlag(view_moved=True)
+
+
+    def mouseMoveEvent(self, event):
+        """ When panning with mouse, invalidate the geometry flag """
+        super(photoView, self).mouseMoveEvent(event)
+        myMainWindow.showGeometryFlag(view_moved=True)
+
+
+    def keyPressEvent(self, event):
+        """ When panning with arrow keys, invalidate the geometry flag """
+        super(photoView, self).keyPressEvent(event)
+        if event.key() in (QtCore.Qt.Key_Left, QtCore.Qt.Key_Up, QtCore.Qt.Key_Right, QtCore.Qt.Key_Down):
+            myMainWindow.showGeometryFlag(view_moved=True)
+
+
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+class photoReframeApp(QMainWindow):
+    """ Main window and app functions """
+
+    def __init__(self):
+        super(photoReframeApp, self).__init__()
+
+        # Public attributes.
+        self.frame_ratio_width = None     # Image frame ratio: width (float).
+        self.frame_ratio_height = None    # Image frame ratio: height (float).
+        self.frame_ratio = None           # Image frame ratio: (width / height).
+        self.slide_time = None            # Time in seconds for slideshow timer.
+        self.directory = None             # Base directory for playlist and images.
+        self.playlist = None              # Playlist filename, with path.
+        self.playlist_changed = False     # Becomes true when setting an image geometry.
+
+        self.image_indexes = deque([])    # Double-ended queue (list) with images indexes.
+        self.image_names = {}             # Dictionary with the filename for each image index.
+        self.image_geometries = {}        # Dictionary with the geometry for each image (or None).
+        self.first_image_index = None     # Index into self.image_indexes[] for the first image to show.
+
+        self.current_image = None         # Filename (no path) of currently displayed image.
+        self.exif_orientation_tag = None  # Image's Exif Orientation tag (see EXIF_ROTATE dictionary).
+        self.image_rotate = None          # Rotation (in degrees) imposed by exif_orientation_tag.
+        self.image_width = None           # Width in pixels of current image, Exif rotation applied.
+        self.image_height = None          # Height in pixels of current image, Exif rotation applied.
+        self.zoom = None                  # Current zoom ratio of image in view rectangle.
+
+        # Before applying to widget's scrollbars, this values must be adjusted for Exif rotation:
+        self.view_hscroll = None          # Image view: horizontal scroll position
+        self.view_vscroll = None          # Image view: vertical scroll position
+
+        self.setWindowTitle(APP_TITLE)
+
+        parser = argparse.ArgumentParser(description=u'Show images listed in "%s", which contains "filename|geometry" data.' % (PLAYLIST,))
+        parser.add_argument('directory', type=str, help='directory containing "%s" and images' % (PLAYLIST,))
+        parser.add_argument('-f', '--fullscreen', action='store_true', help='start in fullscreen mode')
+        parser.add_argument('-r', '--ratio', metavar='WxH', type=str, default=DEFAULT_FRAME_RATIO, help='screen ratio, width x height (default %s)' % (DEFAULT_FRAME_RATIO,))
+        parser.add_argument('-p', '--play', action='store_true', help='start slideshow')
+        parser.add_argument('--timer', type=float, default=DEFAULT_SLIDE_TIME, help='slideshow timer in seconds (default %.1f)' % (DEFAULT_SLIDE_TIME,))
+        args = parser.parse_args()
+
+        self.directory = args.directory
+        self.slide_time = args.timer
+        if not os.path.isdir(self.directory):
+            print(u'Directory "%s" does not exists' % (self.directory,))
+            sys.exit(1)
+        try:
+            w, h = args.ratio.split('x')
+            self.frame_ratio_width = float(w)
+            self.frame_ratio_height = float(h)
+            self.frame_ratio = self.frame_ratio_width / self.frame_ratio_height
+        except:
+            print(u'Error in screen ratio, using default "%s"' % (DEFAULT_FRAME_RATIO,))
+            w, h = DEFAULT_FRAME_RATIO.split('x')
+            self.frame_ratio_width = float(w)
+            self.frame_ratio_height = float(h)
+            self.frame_ratio = self.frame_ratio_width / self.frame_ratio_height
+
+        # Build the lists (names, geometries) of images.
+        self.playlist = os.path.join(self.directory, PLAYLIST)
+        self.readPlaylist()
+        self.scanDirectory()
+        if len(self.image_indexes) < 1:
+            print(u'No images found in "%s"' % (self.directory,))
+            sys.exit(1)
+        self.first_image_index = self.image_indexes[0]
+
+        # Position the window into the screen.
+        screen_width = app.desktop().availableGeometry().width()
+        screen_height = app.desktop().availableGeometry().height()
+        print(u'Screen resolution: %dx%d' % (screen_width, screen_height))
+        # Geometry (size and position) of the QMainWindow widget, excluding any window frame.
+        self.window_pos_x = int(screen_width * WIN_X)  # Consider the window left border.
+        self.window_pos_y = int(screen_height * WIN_Y)  # Consider the window titlebar and top border.
+        self.window_width = int(screen_width * WIN_WIDTH)  # Consder window left and right border.
+        self.window_height = int(screen_height * WIN_HEIGHT)  # Consider the window top/bottom borders, titlebar and desktop bottom panel.
+        # Set size (excluding any window frame) and position of the QMainWindow widget.
+        self.setGeometry(self.window_pos_x, self.window_pos_y, self.window_width, self.window_height)
+        print(u'Setting QMainWindow widget geometry %dx%d+%d+%d' % (self.window_width, self.window_height, self.window_pos_x, self.window_pos_y))
+
+        # Load a blank image into a QPixmap Class.
+        self.image = QPixmap(640, 480)
+        self.scene = QGraphicsScene()
+        self.scene.addPixmap(self.image)
+        self.scene.setSceneRect(0, 0, self.image.size().width(), self.image.size().height())
+        # Create the QGraphicsView, which will contain the image,
+        # size and position will be determined on resizeEvent().
+        self.view = photoView(self.scene, self)
+        self.view.setFrameStyle(QFrame.NoFrame)
+        # Allow mouse scroll and drag, but hide scrollbars.
+        self.view.setDragMode(QGraphicsView.ScrollHandDrag)
+        self.view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        view_width, view_height = self.calculateImageViewSize()
+        self.view.resize(view_width, view_height)
+
+        # Go fullscreen if requested.
+        if args.fullscreen:
+            self.toggleFullscreen()
+
+        # Cannot use Python's threading because QtGui is not thread-safe: can't
+        # execute GUI functions into a timer function. Use QtCore.QTimer() instead.
+        # https://srinikom.github.io/pyside-docs/PySide/QtCore/QTimer.html
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.nextImage)
+        if args.play:
+            self.timer.start(self.slide_time * 1000)
+
+        self.nextImage(0)
+
+
+    def readPlaylist(self):
+        """ Read playlist from directory, fill image_indexes[], image_names{} and geometry{} """
+        if os.path.isfile(self.playlist):
+            with open(self.playlist, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line == '' or line.startswith('#'): continue
+                    if '|' in line:
+                        img_name, img_geometry = line.split('|')
+                        if not re.match(GEOMETRY_RE, img_geometry):
+                            print(u'Invalid geometry for image "%s"' % (img_name,))
+                            img_geometry = None
+                    else:
+                        img_name, img_geometry = line, None
+                    if os.path.isfile(os.path.join(self.directory, img_name)):
+                        new_index = len(self.image_indexes) + 1
+                        self.image_indexes.append(new_index)
+                        self.image_names[new_index] = img_name
+                        self.image_geometries[new_index] = img_geometry
+        print(u'Read file "%s": %d images' % (self.playlist, len(self.image_indexes)))
+
+
+    def scanDirectory(self):
+        """ Scan directory for images, merge into image_indexes[] and image_names{} """
+        files = os.listdir(self.directory)
+        files.sort()
+        for f in files:
+            if os.path.isfile(os.path.join(self.directory, f)):
+                name, ext = os.path.splitext(f)
+                if ext.lower() in EXTENSIONS:
+                    if f not in self.image_names.values():
+                        new_index = len(self.image_indexes) + 1
+                        self.image_indexes.append(new_index)
+                        self.image_names[new_index] = f
+                        self.image_geometries[new_index] = None
+        print(u'Merged images from "%s": total %d images' % (self.directory, len(self.image_indexes)))
+
+
+    def nextImage(self, direction=1):
+        """ Load the next image into the view """
+
+        # In auto-play mode, show only images with geometry properly set.
+        # In normal mode, every image in list will be displayed.
+        skipped = 0
+        skip_this_image = True
+        while skip_this_image:
+            self.image_indexes.rotate(-direction)
+            self.current_index = self.image_indexes[0]
+            self.current_image = self.image_names[self.current_index]
+            self.current_geometry = self.image_geometries[self.current_index]
+            if not self.timer.isActive():
+                skip_this_image = False
+            else:
+                if self.current_geometry is not None:
+                    skip_this_image = False
+                else:
+                    skipped += 1
+                    if skipped >= len(self.image_indexes):
+                        print(u'Slideshow is running, but no images with geometry found')
+                        self.toggleAutoplay()
+                        skip_this_image = False
+
+        print(u'\nCurrent image = "%s"' % (self.current_image,))
+        filename = os.path.join(self.directory, self.current_image)
+        self.exif_orientation_tag = self.getExifOrientationTag(filename)
+        self.image_rotate = EXIF_ROTATE[self.exif_orientation_tag]
+        print(u'Exif Orientation tag = %s' % (self.exif_orientation_tag,))
+
+        # Reset transformation and load the new image into the view.
+        self.view.resetTransform()
+        try:
+            self.image = QPixmap(filename)
+            if self.image.isNull():
+                raise OSError('QPixmap image isNull()')
+        except Exception as e:
+            print(u'Error loading image "%s": %s' % (filename, str(e)))
+            self.image = QPixmap(4000, 3000)
+            self.image.fill(QColor("#7c7c7c"))
+            self.current_geometry = None
+            self.image_geometries[self.current_index] = None
+
+        # NOTICE: The scene does not shirink automatically if image does, so setSceneRect().
+        self.scene.clear()
+        self.scene.addPixmap(self.image)
+        self.scene.setSceneRect(0, 0, self.image.size().width(), self.image.size().height())
+
+        # Calculate visualization parameters.
+        self.image_width = self.image.size().width()
+        self.image_height = self.image.size().height()
+        # Il image is rotated, exchange width and height.
+        if self.exif_orientation_tag in (6, 8):
+            self.image_width, self.image_height = self.image.size().height(), self.image.size().width()
+        # Show image at existing geometry or at full height.
+        if self.current_geometry is not None:
+            print(u'A geometry is defined for "%s"' % (self.current_image,))
+            self.zoomToGeometry()
+        else:
+            print(u'No geometry defined for "%s"' % (self.current_image,))
+            self.zoom = 1.0
+            self.fitImageHeight(fullHeight=True)
+        self.showGeometryFlag()
+        #print('self.view.transform().m11() (horizontal scaling factor)    = %s' % (self.view.transform().m11(),))
+        #print('self.view.transform().m12() (vertical shearing factor)     = %s' % (self.view.transform().m12(),))
+        #print('self.view.transform().m13() (horizontal projection factor) = %s' % (self.view.transform().m13(),))
+        #print('self.view.transform().m21() (horizontal shearing factor)   = %s' % (self.view.transform().m21(),))
+        #print('self.view.transform().m22() (vertical scaling factor)      = %s' % (self.view.transform().m22(),))
+        #print('self.view.transform().m23() (vertical projection factor)   = %s' % (self.view.transform().m23(),))
+        #print('self.view.transform().m31() (horizontal translation factor) = %s' % (self.view.transform().m31(),))
+        #print('self.view.transform().m32() (vertical translation factor)   = %s' % (self.view.transform().m32(),))
+        #print('self.view.transform().m33() (division factor)               = %s' % (self.view.transform().m33(),))
+        #print('self.view.transform().isRotating() = %s' % (self.view.transform().isRotating(),))
+
+
+    def getExifOrientationTag(self, filename):
+        """ Return the Exif Orientation tag from filename """
+
+        # Assume Exif Orientation tag = 1, if missing.
+        exif_orientation_tag = 1
+        try:
+            # Get Exif Orientation from image.
+            exif_data = Image.open(filename)._getexif()
+            if exif_data != None:
+                exif = dict(exif_data.items())
+                if ORIENTATION_TAG in exif.keys():
+                    exif_orientation_tag = exif[ORIENTATION_TAG]
+        except:
+            print(u'Error getting Exif data from image "%s"' % (filename,))
+        return exif_orientation_tag
+
+
+    def spitImageStatus(self):
+        """ Print details about current image re-framing """
+
+        s = getImageState(self)
+        print(u'\n=== spitImageStatus() ===')
+        print(u'Filename = %s' % (self.current_image,))
+        print(u'Exif Orientation tag = %s' % (self.exif_orientation_tag,))
+        print(u'Image size = %dx%d' % (s.image_width, s.image_height))
+        print(u'Scene size = %dx%d' % (s.scene_width, s.scene_height))
+        print(u'Image view size = %dx%d' % (s.view_width, s.view_height))
+        print(u'Zoom = %s' % (self.zoom,))
+        print(u'horizontalScrollBar() = %s' % (s.horizontal_scroll,))
+        print(u'verticalScrollBar() = %s' % (s.vertical_scroll,))
+        print(u'Calculated geometry: %s|%dx%d+%d+%d' % (self.current_image, s.geom_width, s.geom_height, s.geom_x, s.geom_y))
+        s.fixGeometry()
+        print(u'Fixed geometry: %s|%dx%d+%d+%d' % (self.current_image, s.geom_width, s.geom_height, s.geom_x, s.geom_y))
+
+
+    def spitWindowSizes(self):
+        """ Print details about screen and window widgets """
+
+        print(u'\n=== spitWindowSizes() ===')
+        # screenGeometry() is the entire display resolution.
+        screen_geom = app.desktop().screenGeometry()
+        print(u'Screen size: screenGeometry() = %dx%d' % (screen_geom.width(), screen_geom.height()))
+
+        # availableGeometry() is the desktop space, excluding desktop panels, etc. 
+        available_space = app.desktop().availableGeometry()
+        print(u'Desktop space: availableGeometry() = %dx%d' % (available_space.width(), available_space.height()))
+
+        # frameGeometry() is the entire window, including decorations (borders, titlebar, etc.).
+        # WARNING: The correct size may be not available just after __init__(): this function
+        # can return instead the window size without decorations (borders, title bar, etc.).
+        # May be the desktop manager need some time to apply window decorations, etc.
+        # INFO: Executed just afer __init__(), the decorations are not included.
+        # INFO: Executed within a 0.01 sec timer, the decorations are not included.
+        # INFO: Executed within a 0.1 sec timer, the size is OK including decorations.
+        print(u'Window with decorations: frameGeometry() = %dx%d' % (self.frameGeometry().width(), self.frameGeometry().height()))
+
+        # QMainWindow.size() is the size of the window, excluding decorations.
+        print(u'Window space: QMainWindow.size(): %dx%d' % (self.size().width(), self.size().height()))
+
+        # QGraphicsView.size() is the size of the image view.
+        print(u'View size: QGraphicsView.size(): %dx%d' % (self.view.size().width(), self.view.size().height()))
+
+
+    def resizeEvent(self, resizeEvent):
+        """ On resizing of the app's window, adjust the image view """
+
+        view_width, view_height = self.calculateImageViewSize()
+        self.view.resize(view_width, view_height)
+        padding_x, padding_y = self.calculateImageViewPadding()
+        self.view.move(padding_x, padding_y)
+        if self.current_image is not None:
+            self.zoomToGeometry()
+
+
+    def calculateImageViewPadding(self):
+        """ Calculate the padding of the imave view, to center it into window """
+
+        if self.isFullScreen():
+            padding_x, padding_y = 0, 0
+        else:
+            padding_x = int((self.size().width() - self.view.size().width()) / 2)
+            padding_y = int((self.size().height() - self.view.size().height()) / 2)
+        return (padding_x, padding_y)
+
+
+    def calculateImageViewSize(self):
+        """ Calculate the size of the image view, upon actual window size """
+
+        # Get the avaliable space for the image view.
+        if self.isFullScreen():
+            padding_x, padding_y = 0, 0
+        else:
+            padding_x, padding_y = IMG_PADDING_X, IMG_PADDING_Y
+        view_width = float(self.size().width() - padding_x * 2)
+        view_height = float(self.size().height() - padding_y * 2)
+        # Adjust size to self.frame_ratio.
+        if (view_width / view_height) > self.frame_ratio:
+            view_width = (view_height / self.frame_ratio_height) * self.frame_ratio_width
+        else:
+            view_height = (view_width / self.frame_ratio_width) * self.frame_ratio_height
+        # Round to the nearest integer.
+        view_width = int(round(view_width))
+        view_height = int(round(view_height))
+        # If we are in full screen mode, adjust the size up to 3%.
+        if self.isFullScreen():
+            gap_x = int(round(float(self.size().width()) * 0.03))
+            gap_y = int(round(float(self.size().height()) * 0.03))
+            if abs(view_width - self.size().width()) < gap_x:
+                view_width = self.size().width()
+            if abs(view_height - self.size().height()) < gap_y:
+                view_height = self.size().height()
+        return (view_width, view_height)
+
+
+    def myMsgBoxDialog(self, title, icon, text, buttons):
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle(title)
+        dlg.setText(text)
+        dlg.setIcon(icon)
+        dlg.setStandardButtons(buttons)
+        return dlg.exec_()
+
+
+    def confirmSaveDialog(self):
+        """ Save dialog before quit """
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle(u'Save Playlist?')
+        msg = u"""Geometries may be changed. Save current playlist?"""
+        dlg.setText(msg)
+        dlg.setIcon(QMessageBox.Warning)
+        dlg.setStandardButtons(QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+        dlg.setEscapeButton(QMessageBox.Cancel)
+        dlg.setDefaultButton(QMessageBox.Yes)
+        return dlg.exec_()
+
+
+    def helpDialog(self):
+        """ Show help message box """
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle(u'%s Help' % (APP_TITLE,))
+        msg = u"""F1 or ?\tShow this help
+F11 or F\tToggle fullscreen mode
++\tZoom in
+-\tZoom out
+1\tZoom to 1:1 pixel
+W\tZoom to fit image width
+H\tZoom to fit image height
+Z\tZoom-in to remove blank space
+R\tUpdate image cycling Exif Orientation tag
+Return\tAccept current geometry for image
+G\tZoom to current image geometry
+Canc\tForget current geometry (remove from playlist)
+I\tPrint image and window data
+Space\tGo to next image
+Backspace\tGo to previous image
+P\tToggle autoplay
+S\tSave the playlist with updated gemetries
+Q\tQuit program"""
+        dlg.setText(msg)
+        dlg.setIcon(QMessageBox.Information)
+        dlg.setInformativeText(u'Version: %s\n%s' % (__version__, __copyright__))
+        dlg.setStandardButtons(QMessageBox.Ok)
+        dlg.setEscapeButton(QMessageBox.Ok)
+        dlg.exec_()
+
+
+    #def contextMenuEvent(self, event):
+    #    from PyQt5.QtWidgets import QMenu
+    #    menu = QMenu()
+    #    menu.addSection(u'Photo Reframe Context Menu')
+    #    menu.setTitle(u'Photo Reframe Context Menu')
+    #    menu.addAction('F\tToggle fullscreen mode', myMainWindow.helpDialog)
+    #    menu.addAction('Q\tQuit program', myMainWindow.close)
+    #    menu.exec_(event.globalPos())
+
+
+    def keyPressEvent(self, event):
+        """ Handle key pressed by the user """
+
+        # See https://doc.qt.io/qt-5/qt.html#Key-enum
+        if event.key() == QtCore.Qt.Key_F1 or event.key() == QtCore.Qt.Key_Question:
+            """ Show help dialog """
+            self.helpDialog()
+        elif event.key() == QtCore.Qt.Key_F11 or event.key() == QtCore.Qt.Key_F:
+            """ Toggle fullscreen mode """
+            self.toggleFullscreen()
+        elif event.key() == QtCore.Qt.Key_1:
+            """ Zoom to 1:1 pixel """
+            self.zoomReset()
+        elif event.key() == QtCore.Qt.Key_Plus:
+            """ Zoom in """
+            self.zoomIn()
+        elif event.key() == QtCore.Qt.Key_Minus:
+            """ Zoom out """
+            self.zoomOut()
+        elif event.key() == QtCore.Qt.Key_W:
+            """ Zoom to fit image width """
+            self.fitImageWidth(fullWidth=True)
+        elif event.key() == QtCore.Qt.Key_H:
+            """ Zoom to fit image height """
+            self.fitImageHeight(fullHeight=True)
+        elif event.key() == QtCore.Qt.Key_Z:
+            """ Zoom-in to remove horizontal and vertical blank space """
+            self.fitImageWidth()
+            self.fitImageHeight()
+        elif event.key() == QtCore.Qt.Key_R:
+            """ Rotate the image by 90 degrees """
+            self.imageRotate()
+        elif event.key() == QtCore.Qt.Key_I:
+            """ Print image status data """
+            # TODO: Show a pop-up with data.
+            self.spitWindowSizes()
+            self.spitImageStatus()
+        elif event.key() == QtCore.Qt.Key_Return or event.key() == QtCore.Qt.Key_Enter:
+            """ Use current geometry for image """
+            self.spitImageStatus()
+            self.updateImageGeometry()
+        elif event.key() == QtCore.Qt.Key_G:
+            """ Zoom to image geometry """
+            self.zoomToGeometry()
+        elif event.key() == QtCore.Qt.Key_Delete:
+            """ Delete image geometry, image will be removed from playlist """
+            self.deleteImageGeometry()
+        elif event.key() == QtCore.Qt.Key_Space:
+            """ Go to next image """
+            self.nextImage()
+        elif event.key() == QtCore.Qt.Key_Backspace:
+            """ Go to previous image """
+            self.nextImage(-1)
+        elif event.key() == QtCore.Qt.Key_P:
+            """ Toggle autoplay of images """
+            self.toggleAutoplay()
+        elif event.key() == QtCore.Qt.Key_S:
+            """ Save the playlist with updated gemetries """
+            self.savePlaylist()
+        elif event.key() == QtCore.Qt.Key_Q:
+            """ Quit program """
+            self.close()
+
+
+    def fitImageWidth(self, fullWidth=False):
+        """ Adjust zoom to remove horizontal blank space or to full width """
+        s = getImageState(self)
+        if fullWidth or s.geom_width > s.image_width:
+            self.zoom = float(s.view_width) / float(s.image_width)
+            self.view_hscroll = 0
+            self.view_vscroll = int(((float(s.image_height) * self.zoom) - float(s.view_height)) / 2.0)
+            print('fitImageWidth() self.view_vscroll = %s' % (self.view_vscroll,))
+            self.reframeImage()
+
+
+    def fitImageHeight(self, fullHeight=False):
+        """ Adjust zoom to remove vertical blank space or to full height """
+        s = getImageState(self)
+        if fullHeight or s.geom_height > s.image_height:
+            self.zoom = float(s.view_height) / float(s.image_height)
+            self.view_hscroll = int(((float(s.image_width) * self.zoom) - float(s.view_width)) / 2.0)
+            self.view_vscroll = 0
+            print('fitImageHeight() self.view_hscroll = %s' % (self.view_hscroll,))
+            self.reframeImage()
+
+
+    def imageRotate(self):
+        """ Update image cycling Exif Orientation tag """
+        print(u'Current Exif Orientation tag = %s' % (self.exif_orientation_tag,))
+        filename = os.path.join(self.directory, self.current_image)
+        i = EXIF_ORIENTATION_TAGS.index(self.exif_orientation_tag)  + 1
+        if i >= len(EXIF_ORIENTATION_TAGS):
+            i = 0
+        new_tag = EXIF_ORIENTATION_TAGS[i]
+        #cmd = ['exiftool', '-Orientation=%d' % (new_tag,), '-n', filename]
+        cmd = ['exiv2', '--Modify', 'set Exif.Image.Orientation %d' % (new_tag,), filename]
+        print(u'Executing: %s' % (cmd,))
+        try:
+            ret = subprocess.call(cmd)
+        except Exception as e:
+            print(u'Subprocess error: %s' % (str(e),))
+            title = u'Subprocess Error'
+            text = u'Error executing external command:\n%s' % ' '.join(cmd)
+            self.myMsgBoxDialog(title, QMessageBox.Critical, text, QMessageBox.Ok)
+        self.nextImage(0)
+
+
+    def closeEvent(self, event):
+        """ Close app: stop timer, close fullscreen, ask to save """
+        if self.timer.isActive():
+            self.timer.stop()
+        if self.isFullScreen():
+            self.toggleFullscreen()
+        # Ask to save current playlist geometries.
+        if self.playlist_changed:
+            save_playlist = self.confirmSaveDialog()
+            if save_playlist == QMessageBox.Yes:
+                self.savePlaylist()
+            elif save_playlist == QMessageBox.No:
+                pass
+            else:
+                event.ignore()
+
+
+    def setScaleAndRotate(self):
+        """ Apply zoom and rotation to image view """
+        self.view.setTransform(QTransform().scale(self.zoom, self.zoom).rotate(self.image_rotate))
+
+
+    def reframeImage(self):
+        """ Re-frame the image upon rootation, zoom and pan values """
+        # Adjust zoom and orientation.
+        self.setScaleAndRotate()
+        # TODO: Why self.show() is required here?
+        self.show()
+        # Set scrollbars values to get proper image pan, according to geometry.
+        # For a non-rotated image, a value of (0, 0) means that the (top, left)
+        # corner of the image is inside the view, i.e. the image was not scrolled.
+        # Scrollbars values have different min/max ranges, when Exif-rotated.
+        if self.exif_orientation_tag == 8:
+            hscroll_adjusted = self.view_hscroll
+            vscroll_adjusted = self.view_vscroll - int(round(self.image_height * self.zoom))
+        elif self.exif_orientation_tag == 6:
+            hscroll_adjusted = self.view_hscroll - int(round(self.image_width * self.zoom))
+            vscroll_adjusted = self.view_vscroll
+        elif self.exif_orientation_tag == 3:
+            hscroll_adjusted = self.view_hscroll - int(round(self.image_width * self.zoom))
+            vscroll_adjusted = self.view_vscroll - int(round(self.image_height * self.zoom))
+        else:
+            hscroll_adjusted = self.view_hscroll
+            vscroll_adjusted = self.view_vscroll
+        self.view.horizontalScrollBar().setValue(hscroll_adjusted)
+        self.view.verticalScrollBar().setValue(vscroll_adjusted)
+
+
+    def zoomIn(self):
+        self.zoom *= 1.05
+        self.setScaleAndRotate()
+        self.showGeometryFlag(view_moved=True)
+
+
+    def zoomOut(self):
+        self.zoom /= 1.05
+        self.setScaleAndRotate()
+        self.showGeometryFlag(view_moved=True)
+
+
+    def zoomReset(self):
+        self.zoom = 1
+        self.setScaleAndRotate()
+        self.showGeometryFlag(view_moved=True)
+
+
+    def zoomToGeometry(self):
+        """ Re-calculate zoom and pan upon image geometry and view size """
+        print(u'Restoring geometry view for "%s": %s' % (self.current_image, self.current_geometry))
+        if self.current_geometry is not None:
+            view_width, view_height = self.calculateImageViewSize()
+            w, h, x, y = self.current_geometry.replace('x', '+').split('+')
+            self.zoom = float(view_width) / float(w)
+            self.view_hscroll = int(round(float(x) * self.zoom))
+            self.view_vscroll = int(round(float(y) * self.zoom))
+            self.reframeImage()
+        self.showGeometryFlag()
+
+
+    def updateImageGeometry(self):
+        """ Update geometry{} for current image """
+        s = getImageState(self)
+        s.fixGeometry()
+        self.current_geometry = '%dx%d+%d+%d' % (s.geom_width, s.geom_height, s.geom_x, s.geom_y)
+        self.image_geometries[self.current_index] = self.current_geometry
+        self.playlist_changed = True
+        self.showGeometryFlag()
+
+
+    def deleteImageGeometry(self):
+        """ Delete current image's entry from geometry{} """
+        if self.current_geometry is not None:
+            print(u'Deleting geometry for "%s"' % (self.current_image,))
+            self.current_geometry = None
+            self.image_geometries[self.current_index] = None
+            self.playlist_changed = True
+            self.fitImageWidth(fullWidth=True)
+        self.showGeometryFlag()
+
+
+    def showGeometryFlag(self, view_moved=False):
+        """ Show a flag about geometry settings for the current image """
+        palette = QPalette()
+        if self.isFullScreen():
+            palette.setColor(QPalette.Background, QColor(GEOMETRY_FLAG_BLACK))
+        elif view_moved and self.current_geometry is not None:
+            palette.setColor(QPalette.Background, QColor(GEOMETRY_FLAG_UNKNOWN))
+        elif self.current_geometry is None:
+            palette.setColor(QPalette.Background, QColor(GEOMETRY_FLAG_NOTSET))
+        else:
+            palette.setColor(QPalette.Background, QColor(GEOMETRY_FLAG_SET))
+        self.setPalette(palette)
+
+
+    def savePlaylist(self):
+        """ Save a new playlist file, with udated images geometries """
+        # Rewind images list to the first item.
+        offset = list(self.image_indexes).index(self.first_image_index)
+        self.image_indexes.rotate(-offset)
+        print(u'Saving updated playlist "%s"' % (self.playlist,))
+        try:
+            with open(self.playlist, 'w') as f:
+                for i in self.image_indexes:
+                    if self.image_geometries[i] is not None:
+                        print('%s|%s' % (self.image_names[i], self.image_geometries[i]))
+                        f.write('%s|%s\n' % (self.image_names[i], self.image_geometries[i]))
+            self.playlist_changed = False
+        except Exception as e:
+            print(u'Error saving playlist: %s' % (str(e),))
+        # Rewind list to previous position.
+        self.image_indexes.rotate(offset)
+
+
+    def toggleFullscreen(self):
+        if self.isFullScreen():
+            app.restoreOverrideCursor()
+            self.showNormal()
+        else:
+            app.setOverrideCursor(QCursor(QtCore.Qt.BlankCursor))
+            self.showFullScreen()
+
+
+    def toggleAutoplay(self):
+        if self.timer.isActive():
+            print(u'Stopping autoplay')
+            self.timer.stop()
+        else:
+            print(u'Starting autoplay')
+            self.timer.start(self.slide_time * 1000)
+
+
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    myMainWindow = photoReframeApp()
+    myMainWindow.spitWindowSizes()
+    # Start user interaction, then exit.
+    sys.exit(app.exec())
