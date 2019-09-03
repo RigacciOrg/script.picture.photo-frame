@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="script.picture.photo-frame" name="Photo Frame" version="0.1.0" provider-name="Rigacci.Org">
+	<requires>
+		<import addon="xbmc.python" version="2.23.0"/>
+	</requires>
+	<extension point="xbmc.python.script" library="addon.py">
+		<provides>executable</provides>
+	</extension>
+	<extension point="xbmc.addon.metadata">
+		<platform>all</platform>
+		<summary lang="en">Photo Frame Slideshow</summary>
+		<description lang="en">Simple slideshow addon, which uses a directory list with geometry information to re-frame every picture on-the-fly. Launch it over a directory by choosing &quot;View in Photo Frame&quot; from the context menu.
+Directory list is read from the &quot;playlist.txt &quot; file, inside the directory itself.</description>
+		<license>GNU General Public License, v3</license>
+		<language></language>
+		<forum>https://forum.kodi.tv/showthread.php?tid=343296</forum>
+		<source>https://github.com/RigacciOrg/script.picture.photo-frame</source>
+		<website>www.rigacci.org</website>
+		<email>niccolo@rigacci.org</email>
+		<assets>
+			<icon>icon.png</icon>
+			<fanart>fanart.jpg</fanart>
+			<screenshot>resources/screenshot-03.jpg</screenshot>
+			<screenshot>resources/screenshot-02.jpg</screenshot>
+			<screenshot>resources/screenshot-01.jpg</screenshot>
+		</assets>
+		<news>v0.1.0 (2019-08-27)
+ - Initial release.</news>
+	</extension>
+	<extension point="kodi.context.item">
+		<menu id="kodi.core.main">
+			<item library="addon.py">
+				<label>View in Photo Frame</label>
+				<!-- <label>30000</label> -->
+				<visible>ListItem.IsFolder + Container.Content(images)</visible>
+			</item>
+		</menu>
+	</extension>
+</addon>

@@ -1,0 +1,13 @@
+https://forum.kodi.tv/showthread.php?tid=346640
+
+How to use the native display resolution instead of the xbmcgui.Window size?
+
+I wrote an Addon script featuring a very simple slideshow, where I need just a ControlImage fitting the entire xbmcgui.Window.
+I wish to use the full native display resolution (which for me is 1360x768), but I figured out that the xbmcgui.Window is actually 1280x720 pixels and the xbmcgui.ControlImage() inside of it cannot be bigger than this (otherwise it is cropped).
+
+Can someone briefly explain to me why the display resolution and the full-screen xbmcgui.Window are not the same size?
+Can I use, in my Addon script, an xbmcgui.ControlImage inside the xbmcgui.Window, sized as the full display resolution?
+
+I read that something changed from API 17 to 18 (12279 (PR)) but still there is a difference between xbmcgui.Window.getWidth() and xbmcgui.getScreenWidth().
+
+I am using Kodi 17.6 on the Raspberry Pi.

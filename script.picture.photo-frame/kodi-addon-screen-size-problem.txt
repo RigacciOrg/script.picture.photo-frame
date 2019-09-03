@@ -1,0 +1,37 @@
+https://forum.kodi.tv/forumdisplay.php?fid=26
+
+Cannot use the full xbmcgui.Window with a ControlImage()
+
+I wrote an Addon script featuring a very simple slideshow, where I need
+just a ControlImage fitting the entire xbmcgui.Window.
+
+In my first attempt (code below) I read the actual window size and then
+create the ControlImage. Surprisingly enough the resulting image is cropped
+on the TV: the top-left corner is OK, but the lower-right is out of screen:
+
+class MyClass(xbmcgui.Window):
+    def myInit(self):
+        w = self.getWidth()
+        h = self.getHeight()
+        self.image = xbmcgui.ControlImage(0, 0, w, h, "image.jpg")
+        self.addControl(self.image)
+
+
+By trial and error I figured out that the image must be smaller by some
+amount:
+
+class MyClass(xbmcgui.Window):
+    def myInit(self):
+        w = self.getWidth() - 80
+        h = self.getHeight() - 48
+        self.image = xbmcgui.ControlImage(0, 0, w, h, "image.jpg")
+        self.addControl(self.image)
+
+Actually the screen is 1360x768 and the image must be 1280x720 to fit
+exactly the entire screen.
+
+https://github.com/xbmc/xbmc/pull/12279
+
+Any clue why this odd behaviour?
+
+(Using Kodi 17.6 on Raspberry Pi)
