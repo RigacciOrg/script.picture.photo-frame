@@ -372,7 +372,7 @@ contextmenu_item = xbmc.getInfoLabel('ListItem.FilenameAndPath')
 myLog(u'Launched with Context Menu item: "%s"' % (contextmenu_item,), xbmc.LOGINFO)
 if not os.path.isdir(contextmenu_item):
     line1 = u'Please, run this add-on over a Pictures folder, from the Context Menu.'
-    line2 = u'The folder should contain a "%s" file, listing image names and geometry infomration for re-framing.' % (PLAYLIST_FILENAME,)
+    line2 = u'The folder should contain a "%s.%s" file, listing image names and geometry infomration for re-framing.' % (PLAYLIST, PLAYLIST_EXT)
     xbmcgui.Dialog().ok(addonname, line1, line2)
 else:
     mydisplay = MyClass()
