@@ -20,8 +20,10 @@ import tempfile
 
 #--------------------------------------------------------------------------
 #--------------------------------------------------------------------------
-PLAYLIST_FILENAME = 'playlist.txt'
+PLAYLIST = 'playlist'
+PLAYLIST_EXT = 'm3u'
 GEOMETRY_RE = '(\d+)x(\d+)\+(\d+)\+(\d+)'
+FRAME_RATIOS = ('24x9', '16x9', '2x3', '4x3')
 
 SLIDE_TIME_DEFAULT = 5.0
 SLIDE_TIME_MIN = 3.0
@@ -141,9 +143,21 @@ class MyClass(xbmcgui.Window):
         self.img_w = int(addon.getSetting('WindowWidth'))
         self.img_h = int(addon.getSetting('WindowHeight'))
         myLog(u'Window: %dx%d, image: %dx%d' % (self.getWidth(), self.getHeight(), self.img_w, self.img_h), xbmc.LOGINFO)
+
+        # Search the best preset to match the window ratio set in add-on settings.
+        window_ratio = float(self.img_w) / float(self.img_h)
+        min_diff = 999.9
+        for preset in FRAME_RATIOS:
+            w, h = preset.split('x')
+            preset_ratio = float(w) / float(h)
+            if abs(preset_ratio - window_ratio) < min_diff:
+                min_diff = abs(preset_ratio - window_ratio)
+                self.frame_ratio = preset
+        myLog(u'Best frame ratio in presets is %s' % (self.frame_ratio,), xbmc.LOGINFO)
+
         self.image = xbmcgui.ControlImage(0, 0, self.img_w, self.img_h, os.path.join(addonpath, DUMMY_IMAGE))
         self.addControl(self.image)
-        self.getSlideList(self.directory)
+        self.getSlideList(self.directory, self.frame_ratio)
         self.timer = threading.Timer(self.slide_time, self.nextSlide)
         self.autoPlayStatus = True
         self.mutex = threading.Lock()
@@ -166,27 +180,51 @@ class MyClass(xbmcgui.Window):
         for i in self.cache:
             os.remove(self.cache[i])
 
-    def getSlideList(self, directory):
+    def getSlideList(self, directory, frame_ratio):
         """ Initailize slides[], filename{} and geometry{} from directory playlist """
-        playlist = os.path.join(directory, PLAYLIST_FILENAME)
+
+        # Preferred playlist name is "playlist_16x9.m3u" ...
+        p1 = os.path.join(directory, '%s_%s.%s' % (PLAYLIST, frame_ratio, PLAYLIST_EXT))
+        # ... fallback is "playlist.m3u"
+        p2 = os.path.join(directory, '%s.%s' % (PLAYLIST, PLAYLIST_EXT))
+        if os.path.isfile(p1):
+            playlist = p1
+        else:
+            playlist = p2
         try:
+            exception_str = None
             with open(playlist, 'r') as f:
                 slides_list = f.readlines()
-        except:
-            myLog(u'Error reading file %s' % (playlist,), xbmc.LOGERROR)
+        except Exception as e:
+            exception_str = str(e)
+            myLog(u'Error reading playlist "%s"' % (playlist,), xbmc.LOGERROR)
             slides_list = []
+
+        # Read all the lines from playlist.
         for line in slides_list:
-            if line.strip() == '' or line.startswith('#'): continue
-            img_name, img_geometry = line.split('|')
-            img_hash = self.filenameHash(img_name)
-            self.slides.append(img_hash)
-            self.filename[img_hash] = img_name
-            self.geometry[img_hash] = img_geometry
-        myLog(u'Playlist %s contains %d slides' % (playlist, len(self.slides)), xbmc.LOGINFO)
-        # TODO: Better Dialog message: error? Empty list? etc.
-        if len(self.slides) < 2:
+            line = line.strip()
+            if line == '' or line.startswith('#'): continue
+            try:
+                img_name, img_geometry = line.split('|')
+                img_hash = self.filenameHash(img_name)
+                self.slides.append(img_hash)
+                self.filename[img_hash] = img_name
+                self.geometry[img_hash] = img_geometry
+            except:
+                exception_str = u'Some playlist entries contains errors.'
+        myLog(u'Playlist "%s" contains %d slides' % (playlist, len(self.slides)), xbmc.LOGINFO)
+
+        if len(self.slides) < 1:
+            # Warning message if playlist is empty.
             heading = u'Playlist Error'
-            message = u'Cannot read playlist from directory'
+            message = u'Playlist is empty.'
+            if exception_str is not None:
+                message = u'%s %s' % (message, exception_str)
+            xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_WARNING)
+        elif exception_str is not None:
+            # Warning message if some entries are bad.
+            heading = u'Errors in Playlist'
+            message = exception_str
             xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_WARNING)
 
     def prepareCachedImage(self, img, cache_keep):
@@ -313,8 +351,9 @@ class MyClass(xbmcgui.Window):
                 gy = int(match.groups()[3])
             if (not match) or (gx + gw > image_w) or (gy + gh > image_h):
                 myLog(u'Bad geometry for image %s: %s, image size: %dx%d' % (self.filename[img], self.geometry[img], image_w, image_h), xbmc.LOGERROR)
-                # TODO: Warning popup.
-                #xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_INFO)
+                heading = u'Bad Geometry'
+                message = u'Bad geometry for image %s' % (self.filename[img],)
+                xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_WARNING)
                 gw, gh, gx, gy = image_w, image_h, 0, 0
             image = image.crop((gx, gy, gx + gw, gy + gh)).resize((self.img_w, self.img_h), resample=Image.BILINEAR)
             image.save(tmpfile)
