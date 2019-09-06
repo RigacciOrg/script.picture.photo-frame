@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="script.picture.photo-frame" name="Photo Frame" version="0.1.0" provider-name="Rigacci.Org">
+<addon id="script.picture.photo-frame" name="Photo Frame" version="0.1.1" provider-name="Rigacci.Org">
 	<requires>
 		<import addon="xbmc.python" version="2.23.0"/>
 	</requires>
@@ -18,20 +18,22 @@ Directory list is read from the &quot;playlist.txt &quot; file, inside the direc
 		<website>www.rigacci.org</website>
 		<email>niccolo@rigacci.org</email>
 		<assets>
-			<icon>icon.png</icon>
-			<fanart>fanart.jpg</fanart>
+			<icon>resources/icon.png</icon>
+			<fanart>resources/fanart.jpg</fanart>
 			<screenshot>resources/screenshot-03.jpg</screenshot>
 			<screenshot>resources/screenshot-02.jpg</screenshot>
 			<screenshot>resources/screenshot-01.jpg</screenshot>
 		</assets>
-		<news>v0.1.0 (2019-08-27)
+		<news>v0.1.1 (2019-09-06)
+ - The add-on now looks for a playlist named playlist_16x9.m3u or playlist.m3u.
+ - Moved some files to the resources directory, to comply documentation.
+v0.1.0 (2019-08-27)
  - Initial release.</news>
 	</extension>
 	<extension point="kodi.context.item">
 		<menu id="kodi.core.main">
 			<item library="addon.py">
 				<label>View in Photo Frame</label>
-				<!-- <label>30000</label> -->
 				<visible>ListItem.IsFolder + Container.Content(images)</visible>
 			</item>
 		</menu>

@@ -18,6 +18,12 @@ import tempfile
 # https://codedocs.xyz/xbmc/xbmc/group__python__xbmcgui__control__image.html
 # https://kodi.wiki/view/Context_Item_Add-ons
 
+__author__ = "Niccolo Rigacci"
+__copyright__ = "Copyright 2019 Niccolo Rigacci <niccolo@rigacci.org>"
+__license__ = "GPLv3-or-later"
+__email__ = "niccolo@rigacci.org"
+__version__ = "0.1.1"
+
 #--------------------------------------------------------------------------
 #--------------------------------------------------------------------------
 PLAYLIST = 'playlist'
