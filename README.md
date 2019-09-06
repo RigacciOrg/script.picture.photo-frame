@@ -93,5 +93,38 @@ The **keys** you can use during the slideshow are:
 
 ## Kown Problems
 
-* Not using native screen resolution.
-* Cannot determine screen width/heigth ratio automatically.
+### Cannot determine the window width and heigth automatically
+
+Kodi API v.17 has a bug, explained in pull
+[#12279](https://github.com/xbmc/xbmc/pull/12279).
+
+When you ask for *xbmcgui.Window.getWidth()* and 
+*xbmcgui.Window.getHeight()* you actually get the **screen 
+size**, which is different from the **window size** (even if the 
+window is the only object which occupies the entire screen).
+
+For example: if Kodi is running at display resolution of 
+1360x768, the above API call will return 1360x768 instead of 
+1280x720, which actually is the max size of the window you can 
+use.
+
+This is why we added a Settings section in this add-on, just to 
+allow the user to specifiy the window size. The default is 
+1280x720, which should be OK for a Full HD screen.
+
+### Not using the native screen resolution
+
+This add-on uses just a **ControlImage()** which occupy the 
+entire **xbmcgui.Window**. Unfortunately the image size is not 
+mapped 1:1 to the screen size. In my test case Kodi is running 
+at 1360x768 screen resolution, but the xbmcgui.Window cannot be 
+bigger that 1280x720, otherwise it overflows out of the screen.
+
+This means that the add-on can prepare images at max 1280x720 
+resultion and they will be displayed at 1360x768 resolution, 
+after stretching them.
+
+I asked for insight in this
+[forum thread](https://forum.kodi.tv/showthread.php?tid=346640),
+but is not clear to me if it is possible to get the best from 
+the screen hardware.
