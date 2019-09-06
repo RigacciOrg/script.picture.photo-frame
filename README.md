@@ -85,11 +85,11 @@ Frame**.
 
 The **keys** you can use during the slideshow are:
 
-* **PREVIOUS_MENU**, **NAV_BACK** Exit the slideshow.
-* **MOVE_RIGHT**, **NEXT_PICTURE** Stop the slideshow, manually move to the next image.
-* **MOVE_LEFT**, **PREV_PICTURE** Stop the slideshow, manually move to the previous image.
-* **PAUSE**, **SELECT_ITEM** Stop and start the slideshow.
-* **MOVE_UP** **MOVE_DOWN** Increase or decrease the slideshow timer.
+* **PREVIOUS_MENU** or **NAV_BACK** Exit the slideshow.
+* **MOVE_RIGHT** or **NEXT_PICTURE** Stop the slideshow, manually move to the next image.
+* **MOVE_LEFT** or **PREV_PICTURE** Stop the slideshow, manually move to the previous image.
+* **PAUSE** or **SELECT_ITEM** Stop and start the slideshow.
+* **MOVE_UP** or **MOVE_DOWN** Increase or decrease the slideshow timer.
 
 ## Kown Problems
 
