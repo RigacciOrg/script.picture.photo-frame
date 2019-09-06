@@ -1,17 +1,98 @@
-# Add-on Script for Kodi: script.picture.photo-frame
+# Slideshow Add-on Script for Kodi
 
-Slideshow Add-on for Kodi with on-the-fly, user defined image cropping and resizing
+**Slideshow** add-on for **Kodi** based on **playlists** with user defined image **cropping**.
 
-An Add-on for the **[Kodi Home Theater 
-Software](https://kodi.tv/)** to play a photo slideshow based on 
-playlist with on-the-fly image cropping and resizing.
+An add-on for the
+**[Kodi Home Theater Software](https://kodi.tv/)**
+to play slideshows of images based on playlists. Select the 
+images you want to display and sort them; define **zoom and 
+pan** for each picture as you want to **avoid black borders** 
+and unwanted cropping or stretching.
 
-The slideshow can be started selecting the proper Context Menu 
-entry over a pictures directory.
+Crop and resize is perfomed **on-the-fly**, so you don't have to 
+store copies of your images. When an image is displayed, the 
+next one is prepared in cache. Also the previous image is keept 
+in cache, so that switching to the next and to the previous 
+slides is almost immediate.
 
-Image change is controlled by a timer or via joypad keys. Next 
-and previous images are prepared in cache, so that image change 
-is almost immediate.
+The slideshow can be started selecting the proper **Context 
+Menu** entry over a pictures directory. Advancing in slideshow 
+is controlled by a timer or via joypad keys.
 
-Playlists can be prepared with the
+Playlists can be prepared with the Python-based desktop 
+application
 **[photo-reframe-app](https://github.com/RigacciOrg/photo-reframe-app)**.
+
+## Playlist Format
+
+The playlist is a text file is saved into the directory that 
+contains the images. The default, preferred name is 
+**playlist_16x9.m3u** (if your screen is 16:9). A fallback 
+default is **playlist.m3u**.
+
+If the screen width/height ratio is different,
+the add-on searches also for names with the following
+infixes: *24x9*, *16x9*, *2x3* and *4x3*.
+You control the slideshow window size in the add-on
+settings screen (Main menu, Add-ons, Photo Frame, Context 
+menu, Settings).
+
+The playlist contains the filename of the images and their 
+respective geometries, separated by a vertical bar, something 
+like this:
+
+```
+IMG_6602.JPG|4000x2250+0+332
+IMG_6605.JPG|2971x1671+796+628
+IMG_6606.JPG|4000x2250+0+442
+IMG_6610.JPG|3810x2143+90+387
+IMG_6615.JPG|2828x1590+547+681
+IMG_6617.JPG|1633x918+1229+1052
+IMG_6624.JPG|2843x1599+393+585
+```
+
+Each geometry determines the portion of the image to be shown in 
+the slideshow, and it is composed by four values:
+
+* **width** of the crop region
+* **height** of the crop region
+* **X offset** of the top-left corner of the region
+* **Y offset** of the top-left corner of the region
+
+The cropped region is resized to occupy the entire screen.
+
+## Installing the Add-on
+
+Download the
+**[zip archive](https://github.com/RigacciOrg/script.picture.photo-frame/archive/master.zip)**
+and store it somewhere on the Kodi fileststem.
+
+From the **Kodi Main menu** follow the links:
+Add-ons, Search (Add-on browser), Cancel, **Install from zip file**
+
+## Add-on Settings
+
+You have to **manually set the window size** for the slideshow. 
+Default is 1280x720, go to the add-on settings screen to change 
+it (Main Menu, Add-ons, Photo Frame, Context Menu).
+
+## Running the Slideshow
+
+From the Pictures section, browse the directories of your Kodi 
+system (you can add a pictures root foolder to the Favourites 
+menu). When you see a folder containing the playlist and the 
+images, activate the Context Menu and choose **View in Photo 
+Frame**.
+
+The **keys** you can use during the slideshow are:
+
+* **ACTION_PREVIOUS_MENU**, **ACTION_NAV_BACK** Exit the slideshow.
+* **ACTION_MOVE_RIGHT**, **ACTION_NEXT_PICTURE** Stop the slideshow, manually move to the next image.
+* **ACTION_MOVE_LEFT**, **ACTION_PREV_PICTURE** Stop the slideshow, manually move to the previous image.
+* **ACTION_PAUSE**, **ACTION_SELECT_ITEM** Stop and start the slideshow.
+* **ACTION_MOVE_UP** **ACTION_MOVE_DOWN** Increase or decrease the slideshow timer.
+
+## Kown Problems
+
+* Not using native screen resolution.
+* Cannot determine screen width/heigth ratio automatically.
