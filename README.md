@@ -32,10 +32,9 @@ default is **playlist.m3u**.
 
 If the screen width/height ratio is different,
 the add-on searches also for names with the following
-infixes: *24x9*, *16x9*, *2x3* and *4x3*.
+infixes: *24x9*, *16x9*, *3x2* and *4x3*.
 You control the slideshow window size in the add-on
-settings screen (Main menu, Add-ons, Photo Frame, Context 
-menu, Settings).
+settings page.
 
 The playlist contains the filename of the images and their 
 respective geometries, separated by a vertical bar, something 
@@ -81,16 +80,16 @@ it (Main Menu, Add-ons, Photo Frame, Context Menu).
 From the Pictures section, browse the directories of your Kodi 
 system (you can add a pictures root foolder to the Favourites 
 menu). When you see a folder containing the playlist and the 
-images, activate the Context Menu and choose **View in Photo 
+images, activate the **Context Menu** and choose **View in Photo 
 Frame**.
 
 The **keys** you can use during the slideshow are:
 
-* **ACTION_PREVIOUS_MENU**, **ACTION_NAV_BACK** Exit the slideshow.
-* **ACTION_MOVE_RIGHT**, **ACTION_NEXT_PICTURE** Stop the slideshow, manually move to the next image.
-* **ACTION_MOVE_LEFT**, **ACTION_PREV_PICTURE** Stop the slideshow, manually move to the previous image.
-* **ACTION_PAUSE**, **ACTION_SELECT_ITEM** Stop and start the slideshow.
-* **ACTION_MOVE_UP** **ACTION_MOVE_DOWN** Increase or decrease the slideshow timer.
+* **PREVIOUS_MENU**, **NAV_BACK** Exit the slideshow.
+* **MOVE_RIGHT**, **NEXT_PICTURE** Stop the slideshow, manually move to the next image.
+* **MOVE_LEFT**, **PREV_PICTURE** Stop the slideshow, manually move to the previous image.
+* **PAUSE**, **SELECT_ITEM** Stop and start the slideshow.
+* **MOVE_UP** **MOVE_DOWN** Increase or decrease the slideshow timer.
 
 ## Kown Problems
 

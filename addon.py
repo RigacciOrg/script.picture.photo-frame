@@ -23,7 +23,7 @@ import tempfile
 PLAYLIST = 'playlist'
 PLAYLIST_EXT = 'm3u'
 GEOMETRY_RE = '(\d+)x(\d+)\+(\d+)\+(\d+)'
-FRAME_RATIOS = ('24x9', '16x9', '2x3', '4x3')
+FRAME_RATIOS = ('24x9', '16x9', '3x2', '4x3')
 
 SLIDE_TIME_DEFAULT = 5.0
 SLIDE_TIME_MIN = 3.0
