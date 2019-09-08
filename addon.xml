@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="script.picture.photo-frame" name="Photo Frame" version="0.1.1" provider-name="Rigacci.Org">
+<addon id="script.picture.photo-frame" name="Photo Frame" version="0.1.2" provider-name="Rigacci.Org">
 	<requires>
 		<import addon="xbmc.python" version="2.23.0"/>
 	</requires>
@@ -24,9 +24,14 @@ Directory list is read from the &quot;playlist.txt &quot; file, inside the direc
 			<screenshot>resources/screenshot-02.jpg</screenshot>
 			<screenshot>resources/screenshot-01.jpg</screenshot>
 		</assets>
-		<news>v0.1.1 (2019-09-06)
+		<news>v0.1.2 (2019-09-08)
+ - Add-on can now be invoked over a directory or over a playlist file (m3u extension).
+ - Improved addon.py coding style.
+
+v0.1.1 (2019-09-06)
  - The add-on now looks for a playlist named playlist_16x9.m3u or playlist.m3u.
  - Moved some files to the resources directory, to comply documentation.
+
 v0.1.0 (2019-08-27)
  - Initial release.</news>
 	</extension>

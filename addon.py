@@ -1,5 +1,6 @@
-import xbmcaddon
+import xbmc
 import xbmcgui
+import xbmcaddon
 
 from PIL import Image, ExifTags
 from collections import deque
@@ -22,7 +23,7 @@ __author__ = "Niccolo Rigacci"
 __copyright__ = "Copyright 2019 Niccolo Rigacci <niccolo@rigacci.org>"
 __license__ = "GPLv3-or-later"
 __email__ = "niccolo@rigacci.org"
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 #--------------------------------------------------------------------------
 #--------------------------------------------------------------------------
@@ -69,9 +70,9 @@ ACTION_MOVE_DOWN = 4
 #--------------------------------------------------------------------------
 # Get info about this Addon.
 #--------------------------------------------------------------------------
-addon     = xbmcaddon.Addon()
-addonname = addon.getAddonInfo('name')
-addonpath = addon.getAddonInfo('path').decode('utf-8')
+ADDON     = xbmcaddon.Addon()
+ADDONNAME = ADDON.getAddonInfo('name')
+ADDONPATH = ADDON.getAddonInfo('path').decode('utf-8')
 
 
 #--------------------------------------------------------------------------
@@ -90,8 +91,9 @@ LOG_LABEL = {
 }
 def myLog(msg, level):
     if level >= SCRIPT_VERBOSITY:
-        message = '%s: %s: %s' % (addonname, LOG_LABEL[level], msg,)
+        message = '%s: %s: %s' % (ADDONNAME, LOG_LABEL[level], msg,)
         xbmc.log(msg=message.encode('utf-8'), level=xbmc.LOGNOTICE)
+
 
 #--------------------------------------------------------------------------
 #--------------------------------------------------------------------------
@@ -123,9 +125,11 @@ def setScreensaver(mode):
     myLog(u'setScreenaver("%s"): %s' % (mode, result,), xbmc.LOGINFO)
     return result
 
+
 #--------------------------------------------------------------------------
+# Add-on main window.
 #--------------------------------------------------------------------------
-class MyClass(xbmcgui.Window):
+class photoFrameAddon(xbmcgui.Window):
 
     def initSlideshow(self, directory, playlist=None):
         myLog(u'initSlideshow(%s, %s)' % (directory, playlist), xbmc.LOGNOTICE)
@@ -146,8 +150,8 @@ class MyClass(xbmcgui.Window):
         # TODO: How to retrieve the actual Window size in API v17? Workaround: use settings.xml.
         #self.img_w = self.getWidth()
         #self.img_h = self.getHeight()
-        self.img_w = int(addon.getSetting('WindowWidth'))
-        self.img_h = int(addon.getSetting('WindowHeight'))
+        self.img_w = int(ADDON.getSetting('WindowWidth'))
+        self.img_h = int(ADDON.getSetting('WindowHeight'))
         myLog(u'Window: %dx%d, image: %dx%d' % (self.getWidth(), self.getHeight(), self.img_w, self.img_h), xbmc.LOGINFO)
 
         # Search the best preset to match the window ratio found in add-on settings.
@@ -161,7 +165,7 @@ class MyClass(xbmcgui.Window):
                 self.frame_ratio = preset
         myLog(u'Best frame ratio in presets is %s' % (self.frame_ratio,), xbmc.LOGINFO)
 
-        self.image = xbmcgui.ControlImage(0, 0, self.img_w, self.img_h, os.path.join(addonpath, DUMMY_IMAGE))
+        self.image = xbmcgui.ControlImage(0, 0, self.img_w, self.img_h, os.path.join(ADDONPATH, DUMMY_IMAGE))
         self.addControl(self.image)
         self.getSlideList(self.directory, playlist, self.frame_ratio)
         self.timer = threading.Timer(self.slide_time, self.nextSlide)
@@ -375,22 +379,23 @@ class MyClass(xbmcgui.Window):
 
 
 #--------------------------------------------------------------------------
-# If called from the Context Menu, get the item path and run on that.
+# Addon entry point: get the Context Menu item path and run on that.
 #--------------------------------------------------------------------------
-contextmenu_item = xbmc.getInfoLabel('ListItem.FilenameAndPath')
-myLog(u'Launched with Context Menu item: "%s"' % (contextmenu_item,), xbmc.LOGINFO)
-if os.path.isfile(contextmenu_item):
-    directory = os.path.dirname(contextmenu_item)
-    playlist = os.path.basename(contextmenu_item)
-else:
-    directory = contextmenu_item
-    playlist = None
-if not os.path.isdir(directory):
-    line1 = u'Please, run this add-on from the Context Menu over a playlist or a folder, which should contain a "%s.%s" file.' % (PLAYLIST, PLAYLIST_EXT)
-    line2 = u'The playlist should contain image filenames and geometry data for re-framing, separated by a vertical bar.'
-    xbmcgui.Dialog().ok(addonname, line1, line2)
-else:
-    mydisplay = MyClass()
-    mydisplay.initSlideshow(directory, playlist)
-    mydisplay.doModal()
-    del mydisplay
+if (__name__ == '__main__'):
+    contextmenu_item = xbmc.getInfoLabel('ListItem.FilenameAndPath')
+    myLog(u'Launched with Context Menu item: "%s"' % (contextmenu_item,), xbmc.LOGINFO)
+    if os.path.isfile(contextmenu_item):
+        directory = os.path.dirname(contextmenu_item)
+        playlist = os.path.basename(contextmenu_item)
+    else:
+        directory = contextmenu_item
+        playlist = None
+    if not os.path.isdir(directory):
+        line1 = u'Run this add-on from the Context Menu over a playlist or over a folder (which contains a "%s.%s" file).' % (PLAYLIST, PLAYLIST_EXT)
+        line2 = u'The playlist should contain the images filenames and the cropping geometries, separated by a vertical bar.'
+        xbmcgui.Dialog().ok(ADDONNAME, line1, line2)
+    else:
+        window_instance = photoFrameAddon()
+        window_instance.initSlideshow(directory, playlist)
+        window_instance.doModal()
+        del window_instance
