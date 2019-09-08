@@ -127,8 +127,8 @@ def setScreensaver(mode):
 #--------------------------------------------------------------------------
 class MyClass(xbmcgui.Window):
 
-    def initSlideshow(self, directory):
-        myLog(u'initSlideshow(%s)' % (directory,), xbmc.LOGNOTICE)
+    def initSlideshow(self, directory, playlist=None):
+        myLog(u'initSlideshow(%s, %s)' % (directory, playlist), xbmc.LOGNOTICE)
         self.saved_screensaver = getScreensaver()
         if self.saved_screensaver != '':
             setScreensaver('')
@@ -150,7 +150,7 @@ class MyClass(xbmcgui.Window):
         self.img_h = int(addon.getSetting('WindowHeight'))
         myLog(u'Window: %dx%d, image: %dx%d' % (self.getWidth(), self.getHeight(), self.img_w, self.img_h), xbmc.LOGINFO)
 
-        # Search the best preset to match the window ratio set in add-on settings.
+        # Search the best preset to match the window ratio found in add-on settings.
         window_ratio = float(self.img_w) / float(self.img_h)
         min_diff = 999.9
         for preset in FRAME_RATIOS:
@@ -163,7 +163,7 @@ class MyClass(xbmcgui.Window):
 
         self.image = xbmcgui.ControlImage(0, 0, self.img_w, self.img_h, os.path.join(addonpath, DUMMY_IMAGE))
         self.addControl(self.image)
-        self.getSlideList(self.directory, self.frame_ratio)
+        self.getSlideList(self.directory, playlist, self.frame_ratio)
         self.timer = threading.Timer(self.slide_time, self.nextSlide)
         self.autoPlayStatus = True
         self.mutex = threading.Lock()
@@ -186,27 +186,30 @@ class MyClass(xbmcgui.Window):
         for i in self.cache:
             os.remove(self.cache[i])
 
-    def getSlideList(self, directory, frame_ratio):
-        """ Initailize slides[], filename{} and geometry{} from directory playlist """
+    def getSlideList(self, directory, playlist, frame_ratio):
+        """ Initailize slides[], filename{} and geometry{} from directory/playlist """
 
-        # Preferred playlist name is "playlist_16x9.m3u" ...
-        p1 = os.path.join(directory, '%s_%s.%s' % (PLAYLIST, frame_ratio, PLAYLIST_EXT))
-        # ... fallback is "playlist.m3u"
-        p2 = os.path.join(directory, '%s.%s' % (PLAYLIST, PLAYLIST_EXT))
-        if os.path.isfile(p1):
-            playlist = p1
+        if playlist is None:
+            # Preferred playlist name is "playlist_16x9.m3u" ...
+            p1 = os.path.join(directory, '%s_%s.%s' % (PLAYLIST, frame_ratio, PLAYLIST_EXT))
+            # ... fallback is "playlist.m3u"
+            p2 = os.path.join(directory, '%s.%s' % (PLAYLIST, PLAYLIST_EXT))
+            if os.path.isfile(p1):
+                playlist = p1
+            else:
+                playlist = p2
         else:
-            playlist = p2
+            playlist = os.path.join(directory, playlist)
+        # Try to read the playlist file.
         try:
             exception_str = None
             with open(playlist, 'r') as f:
                 slides_list = f.readlines()
         except Exception as e:
             exception_str = str(e)
-            myLog(u'Error reading playlist "%s"' % (playlist,), xbmc.LOGERROR)
+            myLog(u'Error reading playlist "%s": %s' % (playlist, str(e)), xbmc.LOGERROR)
             slides_list = []
-
-        # Read all the lines from playlist.
+        # Parse all the lines from playlist.
         for line in slides_list:
             line = line.strip()
             if line == '' or line.startswith('#'): continue
@@ -376,12 +379,18 @@ class MyClass(xbmcgui.Window):
 #--------------------------------------------------------------------------
 contextmenu_item = xbmc.getInfoLabel('ListItem.FilenameAndPath')
 myLog(u'Launched with Context Menu item: "%s"' % (contextmenu_item,), xbmc.LOGINFO)
-if not os.path.isdir(contextmenu_item):
-    line1 = u'Please, run this add-on over a Pictures folder, from the Context Menu.'
-    line2 = u'The folder should contain a "%s.%s" file, listing image names and geometry infomration for re-framing.' % (PLAYLIST, PLAYLIST_EXT)
+if os.path.isfile(contextmenu_item):
+    directory = os.path.dirname(contextmenu_item)
+    playlist = os.path.basename(contextmenu_item)
+else:
+    directory = contextmenu_item
+    playlist = None
+if not os.path.isdir(directory):
+    line1 = u'Please, run this add-on from the Context Menu over a playlist or a folder, which should contain a "%s.%s" file.' % (PLAYLIST, PLAYLIST_EXT)
+    line2 = u'The playlist should contain image filenames and geometry data for re-framing, separated by a vertical bar.'
     xbmcgui.Dialog().ok(addonname, line1, line2)
 else:
     mydisplay = MyClass()
-    mydisplay.initSlideshow(contextmenu_item)
+    mydisplay.initSlideshow(directory, playlist)
     mydisplay.doModal()
     del mydisplay
