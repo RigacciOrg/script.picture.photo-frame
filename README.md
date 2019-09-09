@@ -21,7 +21,7 @@ is controlled by a timer or via joypad keys.
 
 Playlists can be prepared with the Python-based desktop 
 application
-**[photo-reframe-app](https://github.com/RigacciOrg/photo-reframe-app)**.
+**[photo-reframe-slideshow](https://github.com/RigacciOrg/photo-reframe-slideshow)**.
 
 ## Playlist Format
 
