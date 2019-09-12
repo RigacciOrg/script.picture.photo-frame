@@ -229,7 +229,7 @@ class photoFrameAddon(xbmcgui.Window):
                 self.filename[img_hash] = img_name
                 self.geometry[img_hash] = img_geometry
             except:
-                exception_str = u'Some playlist entries contains errors.'
+                exception_str = __localize__(32020)
         self.myLog(u'Playlist "%s" contains %d slides' % (playlist, len(self.slides)), xbmc.LOGINFO)
 
         if len(self.slides) < 1:
@@ -238,12 +238,12 @@ class photoFrameAddon(xbmcgui.Window):
             message = __localize__(32005)
             if exception_str is not None:
                 message = u'%s %s' % (message, exception_str)
-            xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_WARNING)
+            xbmcgui.Dialog().notification(heading.encode('utf-8'), message.encode('utf-8'), xbmcgui.NOTIFICATION_WARNING)
         elif exception_str is not None:
             # Warning message if some entries are bad.
             heading = __localize__(32006)
             message = exception_str
-            xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_WARNING)
+            xbmcgui.Dialog().notification(heading.encode('utf-8'), message.encode('utf-8'), xbmcgui.NOTIFICATION_WARNING)
 
     def prepareCachedImage(self, img, cache_keep):
         """ Return the name of a temporary file, with the image cropped/resized """
@@ -307,7 +307,7 @@ class photoFrameAddon(xbmcgui.Window):
             self.autoPlayStatus = False
             message = __localize__(32009)
         self.myLog(u'setAutoPlay(): %s' % (message,), xbmc.LOGNOTICE)
-        xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_INFO)
+        xbmcgui.Dialog().notification(heading.encode('utf-8'), message.encode('utf-8'), xbmcgui.NOTIFICATION_INFO)
 
     def onAction(self, action):
         actionId = action.getId()
@@ -344,7 +344,7 @@ class photoFrameAddon(xbmcgui.Window):
                 heading = __localize__(32010)
                 message = __localize__(32011) % (int(self.slide_time),)
                 self.myLog(u'onAction(): %s' % (message,), xbmc.LOGINFO)
-                xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_INFO)
+                xbmcgui.Dialog().notification(heading.encode('utf-8'), message.encode('utf-8'), xbmcgui.NOTIFICATION_INFO)
 
     def imageToGeometry(self, img, tmpfile):
         """ Crop and resize an image, save it into a temporary cache file """
@@ -353,7 +353,10 @@ class photoFrameAddon(xbmcgui.Window):
             image = Image.open(filename)
             # Assume Exif Orientation tag = 1, if missing.
             exif_orientation_tag = 1
-            exif_data = image._getexif()
+            try:
+                exif_data = image._getexif()
+            except:
+                exif_data = None
             if exif_data != None:
                 exif = dict(exif_data.items())
                 if ORIENTATION_TAG in exif.keys():
@@ -371,8 +374,9 @@ class photoFrameAddon(xbmcgui.Window):
             if (not match) or (gx + gw > image_w) or (gy + gh > image_h):
                 heading = __localize__(32012)
                 message = __localize__(32013) % (self.filename[img],)
-                self.myLog(u'%s: %s, image size: %dx%d' % (message, self.geometry[img], image_w, image_h), xbmc.LOGERROR)
-                xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_WARNING)
+                msgsize = __localize__(32017) % (image_w, image_h)
+                self.myLog(u'%s: %s, %s' % (message, self.geometry[img], msgsize), xbmc.LOGERROR)
+                xbmcgui.Dialog().notification(heading.encode('utf-8'), message.encode('utf-8'), xbmcgui.NOTIFICATION_WARNING)
                 gw, gh, gx, gy = image_w, image_h, 0, 0
             image = image.crop((gx, gy, gx + gw, gy + gh)).resize((self.img_w, self.img_h), resample=Image.BILINEAR)
             image.save(tmpfile)
@@ -400,7 +404,7 @@ if (__name__ == '__main__'):
     if not os.path.isdir(directory):
         line1 = __localize__(32002) % (PLAYLIST, PLAYLIST_EXT)
         line2 = __localize__(32003)
-        xbmcgui.Dialog().ok(ADDONNAME, line1, line2)
+        xbmcgui.Dialog().ok(ADDONNAME.encode('utf-8'), line1.encode('utf-8'), line2.encode('utf-8'))
     else:
         window_instance = photoFrameAddon()
         window_instance.initSlideshow(directory, playlist)

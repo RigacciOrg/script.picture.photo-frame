@@ -91,3 +91,11 @@ msgstr "Altezza"
 msgctxt "#32019"
 msgid "Log Level"
 msgstr "Livello di log"
+
+msgctxt "#32020"
+msgid "Some items in the playlist contain errors."
+msgstr "Alcune voci della playlist contengono errori."
+
+msgctxt "#32021"
+msgid "image size: %dx%d"
+msgstr "dimensione immagine %dx%d"

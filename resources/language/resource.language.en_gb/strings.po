@@ -75,3 +75,27 @@ msgstr ""
 msgctxt "#32015"
 msgid "Image \"%s\": imageToGeometry(): Exception: %s"
 msgstr ""
+
+msgctxt "#32016"
+msgid "Window Size"
+msgstr ""
+
+msgctxt "#32017"
+msgid "Width"
+msgstr ""
+
+msgctxt "#32018"
+msgid "Height"
+msgstr ""
+
+msgctxt "#32019"
+msgid "Log Level"
+msgstr ""
+
+msgctxt "#32020"
+msgid "Some items in the playlist contain errors."
+msgstr ""
+
+msgctxt "#32021"
+msgid "image size: %dx%d"
+msgstr ""
