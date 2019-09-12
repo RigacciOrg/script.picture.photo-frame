@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings>
-    <category label="Window Size">
-        <setting label="Width"  type="labelenum" id="WindowWidth"  values="720|1280|1920"    option="int" default="1280"/>
-        <setting label="Height" type="labelenum" id="WindowHeight" values="480|576|720|1080" option="int" default="720"/>
+    <category label="32016">
+        <setting label="32017" type="labelenum" id="WindowWidth"  values="720|1280|1920"    option="int" default="1280"/>
+        <setting label="32018" type="labelenum" id="WindowHeight" values="480|576|720|1080" option="int" default="720"/>
+    </category>
+    <category label="Debug">
+        <setting label="32019" type="labelenum" id="LogLevel" values="DEBUG|INFO|NOTICE|WARNING|ERROR|FATAL" default="WARNING"/>
     </category>
 </settings>

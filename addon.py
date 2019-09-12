@@ -73,27 +73,23 @@ ACTION_MOVE_DOWN = 4
 ADDON     = xbmcaddon.Addon()
 ADDONNAME = ADDON.getAddonInfo('name')
 ADDONPATH = ADDON.getAddonInfo('path').decode('utf-8')
-
+__localize__ = ADDON.getLocalizedString
 
 #--------------------------------------------------------------------------
-# Kodi default is to emit only messages with level >= LOGNOTICE,
-# change this default in userdata/advancedsettings.xml.
-# Make our own logging verbosity.
+# Kodi default is to emit messages with level >= xbmc.LOGNOTICE, this is
+# fixed and can be changed only in userdata/advancedsettings.xml.
+# So we make our own configurable logging verbosity.
 #--------------------------------------------------------------------------
-SCRIPT_VERBOSITY = xbmc.LOGINFO
-LOG_LABEL = {
-    xbmc.LOGDEBUG:   '  DEBUG',
-    xbmc.LOGINFO:    '   INFO',
-    xbmc.LOGNOTICE:  ' NOTICE',
-    xbmc.LOGWARNING: 'WARNING',
-    xbmc.LOGERROR:   '  ERROR',
-    xbmc.LOGFATAL:   '  FATAL'
+LOG_LEVEL = {
+    'DEBUG':   xbmc.LOGDEBUG,
+    'INFO':    xbmc.LOGINFO,
+    'NOTICE':  xbmc.LOGNOTICE,
+    'WARNING': xbmc.LOGWARNING,
+    'ERROR':   xbmc.LOGERROR,
+    'FATAL':   xbmc.LOGFATAL
 }
-def myLog(msg, level):
-    if level >= SCRIPT_VERBOSITY:
-        message = '%s: %s: %s' % (ADDONNAME, LOG_LABEL[level], msg,)
-        xbmc.log(msg=message.encode('utf-8'), level=xbmc.LOGNOTICE)
-
+# Create the inverse dictionary, to search the label by value.
+LOG_LABEL = dict(zip(LOG_LEVEL.values(), LOG_LEVEL.keys()))
 
 #--------------------------------------------------------------------------
 #--------------------------------------------------------------------------
@@ -107,7 +103,6 @@ def getScreensaver():
         result = json_rpc['result']['value']
     except:
         result = None
-    myLog(u'getScreenaver(): "%s"' % (result,), xbmc.LOGINFO)
     return result
 
 #--------------------------------------------------------------------------
@@ -122,7 +117,6 @@ def setScreensaver(mode):
         result = json_rpc['result']
     except:
         result = False
-    myLog(u'setScreenaver("%s"): %s' % (mode, result,), xbmc.LOGINFO)
     return result
 
 
@@ -132,10 +126,15 @@ def setScreensaver(mode):
 class photoFrameAddon(xbmcgui.Window):
 
     def initSlideshow(self, directory, playlist=None):
-        myLog(u'initSlideshow(%s, %s)' % (directory, playlist), xbmc.LOGNOTICE)
+        self.verbosity = xbmc.LOGINFO
+        if ADDON.getSetting('LogLevel') in LOG_LEVEL:
+            self.verbosity = LOG_LEVEL[ADDON.getSetting('LogLevel')]
+        self.myLog(u'initSlideshow(%s, %s)' % (directory, playlist), xbmc.LOGNOTICE)
         self.saved_screensaver = getScreensaver()
+        self.myLog(u'getScreenaver(): "%s"' % (self.saved_screensaver,), xbmc.LOGINFO)
         if self.saved_screensaver != '':
-            setScreensaver('')
+            result = setScreensaver('')
+            self.myLog(u'setScreenaver("%s"): %s' % ('', result), xbmc.LOGINFO)
         self.directory = directory
         self.slide_time = SLIDE_TIME_DEFAULT
         self.slides = deque([])
@@ -152,7 +151,7 @@ class photoFrameAddon(xbmcgui.Window):
         #self.img_h = self.getHeight()
         self.img_w = int(ADDON.getSetting('WindowWidth'))
         self.img_h = int(ADDON.getSetting('WindowHeight'))
-        myLog(u'Window: %dx%d, image: %dx%d' % (self.getWidth(), self.getHeight(), self.img_w, self.img_h), xbmc.LOGINFO)
+        self.myLog(u'Window: %dx%d, image: %dx%d' % (self.getWidth(), self.getHeight(), self.img_w, self.img_h), xbmc.LOGINFO)
 
         # Search the best preset to match the window ratio found in add-on settings.
         window_ratio = float(self.img_w) / float(self.img_h)
@@ -163,7 +162,7 @@ class photoFrameAddon(xbmcgui.Window):
             if abs(preset_ratio - window_ratio) < min_diff:
                 min_diff = abs(preset_ratio - window_ratio)
                 self.frame_ratio = preset
-        myLog(u'Best frame ratio in presets is %s' % (self.frame_ratio,), xbmc.LOGINFO)
+        self.myLog(u'Best frame ratio in presets is %s' % (self.frame_ratio,), xbmc.LOGINFO)
 
         self.image = xbmcgui.ControlImage(0, 0, self.img_w, self.img_h, os.path.join(ADDONPATH, DUMMY_IMAGE))
         self.addControl(self.image)
@@ -174,6 +173,12 @@ class photoFrameAddon(xbmcgui.Window):
         self.cachePrepare()
         self.slides.rotate(1)
         self.nextSlide()
+
+    def myLog(self, msg, level):
+        """ Log to Kodi with xbmc.LOGNOTICE, but using our own verbosity """
+        if level >= self.verbosity:
+            message = '%s: %7s: %s' % (ADDONNAME, LOG_LABEL[level], msg,)
+            xbmc.log(msg=message.encode('utf-8'), level=xbmc.LOGNOTICE)
 
     def filenameHash(self, string):
         """ Return an hash suitable to index a filenames list """
@@ -211,7 +216,7 @@ class photoFrameAddon(xbmcgui.Window):
                 slides_list = f.readlines()
         except Exception as e:
             exception_str = str(e)
-            myLog(u'Error reading playlist "%s": %s' % (playlist, str(e)), xbmc.LOGERROR)
+            self.myLog(u'Error reading playlist "%s": %s' % (playlist, str(e)), xbmc.LOGERROR)
             slides_list = []
         # Parse all the lines from playlist.
         for line in slides_list:
@@ -225,29 +230,29 @@ class photoFrameAddon(xbmcgui.Window):
                 self.geometry[img_hash] = img_geometry
             except:
                 exception_str = u'Some playlist entries contains errors.'
-        myLog(u'Playlist "%s" contains %d slides' % (playlist, len(self.slides)), xbmc.LOGINFO)
+        self.myLog(u'Playlist "%s" contains %d slides' % (playlist, len(self.slides)), xbmc.LOGINFO)
 
         if len(self.slides) < 1:
             # Warning message if playlist is empty.
-            heading = u'Playlist Error'
-            message = u'Playlist is empty.'
+            heading = __localize__(32004)
+            message = __localize__(32005)
             if exception_str is not None:
                 message = u'%s %s' % (message, exception_str)
             xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_WARNING)
         elif exception_str is not None:
             # Warning message if some entries are bad.
-            heading = u'Errors in Playlist'
+            heading = __localize__(32006)
             message = exception_str
             xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_WARNING)
 
     def prepareCachedImage(self, img, cache_keep):
         """ Return the name of a temporary file, with the image cropped/resized """
-        myLog(u'Keep cache for %s, %s, %s' % (
+        self.myLog(u'Keep cache for %s, %s, %s' % (
             self.filename[cache_keep[0]],
             self.filename[cache_keep[1]],
             self.filename[cache_keep[2]]), xbmc.LOGDEBUG)
         if img in self.cache:
-            myLog(u'Cache hit for %s in %s' % (self.filename[img], self.cache[img]), xbmc.LOGDEBUG)
+            self.myLog(u'Cache hit for %s in %s' % (self.filename[img], self.cache[img]), xbmc.LOGDEBUG)
         else:
             for i in self.cache:
                 if i not in cache_keep:
@@ -257,7 +262,7 @@ class photoFrameAddon(xbmcgui.Window):
                     t = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
                     self.cache[img] = t.name
                     break
-            myLog(u'Cache miss for %s, creating %s' % (self.filename[img], self.cache[img]), xbmc.LOGDEBUG)
+            self.myLog(u'Cache miss for %s, creating %s' % (self.filename[img], self.cache[img]), xbmc.LOGDEBUG)
             self.imageToGeometry(img, self.cache[img])
         return self.cache[img]
 
@@ -275,7 +280,7 @@ class photoFrameAddon(xbmcgui.Window):
             keep_cached = (prev_img, cur_img, next_img)
             # Prepare current image and show it.
             tmp = self.prepareCachedImage(cur_img, keep_cached)
-            myLog(u'nextSlide(): Image %s from %s' % (self.filename[cur_img], tmp), xbmc.LOGNOTICE)
+            self.myLog(u'nextSlide(): Image %s from %s' % (self.filename[cur_img], tmp), xbmc.LOGNOTICE)
             # WARNING: ControlImage.setImage() useCache=False parameter does not work.
             # The prepareCachedImage() creates a new name each time, as a workaround.
             self.image.setImage(tmp, False)
@@ -291,41 +296,42 @@ class photoFrameAddon(xbmcgui.Window):
     def setAutoPlay(self, autoPlayEnabled):
         if autoPlayEnabled == self.autoPlayStatus:
             return
-        heading = u'Auto Play'
+        heading = __localize__(32007)
         if autoPlayEnabled:
             self.timer = threading.Timer(self.slide_time, self.nextSlide)
             self.timer.start()
             self.autoPlayStatus = True
-            message = u'Starting slides auto play'
+            message = __localize__(32008)
         else:
             self.timer.cancel()
             self.autoPlayStatus = False
-            message = u'Stopping slides auto play'
-        myLog(u'setAutoPlay(): %s' % (message,), xbmc.LOGNOTICE)
+            message = __localize__(32009)
+        self.myLog(u'setAutoPlay(): %s' % (message,), xbmc.LOGNOTICE)
         xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_INFO)
 
     def onAction(self, action):
         actionId = action.getId()
-        myLog(u'onAction(): action = %s' % (actionId,), xbmc.LOGDEBUG)
+        self.myLog(u'onAction(): action = %s' % (actionId,), xbmc.LOGDEBUG)
         if actionId == ACTION_PREVIOUS_MENU or actionId == ACTION_NAV_BACK:
-            myLog(u'onAction(): ACTION_PREVIOUS_MENU or ACTION_NAV_BACK', xbmc.LOGINFO)
+            self.myLog(u'onAction(): ACTION_PREVIOUS_MENU or ACTION_NAV_BACK', xbmc.LOGINFO)
             self.timer.cancel()
             self.cacheRemove()
-            setScreensaver(self.saved_screensaver)
+            ret = setScreensaver(self.saved_screensaver)
+            self.myLog(u'setScreenaver("%s"): %s' % (self.saved_screensaver, ret), xbmc.LOGINFO)
             self.close()
         if actionId == ACTION_MOVE_RIGHT or actionId == ACTION_NEXT_PICTURE:
-            myLog(u'onAction(): ACTION_MOVE_RIGHT or ACTION_NEXT_PICTURE', xbmc.LOGINFO)
+            self.myLog(u'onAction(): ACTION_MOVE_RIGHT or ACTION_NEXT_PICTURE', xbmc.LOGINFO)
             self.setAutoPlay(False)
             self.nextSlide()
         if actionId == ACTION_MOVE_LEFT or actionId == ACTION_PREV_PICTURE:
-            myLog(u'onAction(): ACTION_MOVE_LEFT or ACTION_PREV_PICTURE', xbmc.LOGINFO)
+            self.myLog(u'onAction(): ACTION_MOVE_LEFT or ACTION_PREV_PICTURE', xbmc.LOGINFO)
             self.setAutoPlay(False)
             self.nextSlide(-1)
         if actionId == ACTION_PAUSE or actionId == ACTION_SELECT_ITEM:
-            myLog(u'onAction(): ACTION_PAUSE or ACTION_SELECT_ITEM', xbmc.LOGINFO)
+            self.myLog(u'onAction(): ACTION_PAUSE or ACTION_SELECT_ITEM', xbmc.LOGINFO)
             self.setAutoPlay(not self.autoPlayStatus)
         if actionId == ACTION_MOVE_UP or actionId == ACTION_MOVE_DOWN:
-            myLog(u'onAction(): ACTION_MOVE_UP or ACTION_MOVE_DOWN', xbmc.LOGINFO)
+            self.myLog(u'onAction(): ACTION_MOVE_UP or ACTION_MOVE_DOWN', xbmc.LOGINFO)
             if actionId == ACTION_MOVE_UP:
                 self.slide_time += 1.0
             if actionId == ACTION_MOVE_DOWN:
@@ -335,9 +341,9 @@ class photoFrameAddon(xbmcgui.Window):
             elif self.slide_time < SLIDE_TIME_MIN:
                 self.slide_time = SLIDE_TIME_MIN
             else:
-                heading = u'Slide Time'
-                message = u'Setting timer to %d seconds' % (int(self.slide_time),)
-                myLog(u'onAction(): Setting slide time to %d' % (self.slide_time,), xbmc.LOGINFO)
+                heading = __localize__(32010)
+                message = __localize__(32011) % (int(self.slide_time),)
+                self.myLog(u'onAction(): %s' % (message,), xbmc.LOGINFO)
                 xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_INFO)
 
     def imageToGeometry(self, img, tmpfile):
@@ -363,18 +369,18 @@ class photoFrameAddon(xbmcgui.Window):
                 gx = int(match.groups()[2])
                 gy = int(match.groups()[3])
             if (not match) or (gx + gw > image_w) or (gy + gh > image_h):
-                myLog(u'Bad geometry for image %s: %s, image size: %dx%d' % (self.filename[img], self.geometry[img], image_w, image_h), xbmc.LOGERROR)
-                heading = u'Bad Geometry'
-                message = u'Bad geometry for image %s' % (self.filename[img],)
+                heading = __localize__(32012)
+                message = __localize__(32013) % (self.filename[img],)
+                self.myLog(u'%s: %s, image size: %dx%d' % (message, self.geometry[img], image_w, image_h), xbmc.LOGERROR)
                 xbmcgui.Dialog().notification(heading, message, xbmcgui.NOTIFICATION_WARNING)
                 gw, gh, gx, gy = image_w, image_h, 0, 0
             image = image.crop((gx, gy, gx + gw, gy + gh)).resize((self.img_w, self.img_h), resample=Image.BILINEAR)
             image.save(tmpfile)
         except Exception, e:
             # TODO: Use broken image.
-            heading = u'Image Error'
-            message = u'Image "%s": imageToGeometry(): Exception: %s' % (self.filename[img], str(e),)
-            myLog(message, xbmc.LOGERROR)
+            heading = __localize__(32014)
+            message = __localize__(32015) % (self.filename[img], str(e),)
+            self.myLog(message, xbmc.LOGERROR)
             xbmcgui.Dialog().notification(heading.encode('utf-8'), message.encode('utf-8'), xbmcgui.NOTIFICATION_ERROR)
 
 
@@ -383,7 +389,8 @@ class photoFrameAddon(xbmcgui.Window):
 #--------------------------------------------------------------------------
 if (__name__ == '__main__'):
     contextmenu_item = xbmc.getInfoLabel('ListItem.FilenameAndPath')
-    myLog(u'Launched with Context Menu item: "%s"' % (contextmenu_item,), xbmc.LOGINFO)
+    message = u'Launched with Context Menu item: "%s"' % (contextmenu_item,)
+    xbmc.log(msg=message.encode('utf-8'), level=xbmc.LOGNOTICE)
     if os.path.isfile(contextmenu_item):
         directory = os.path.dirname(contextmenu_item)
         playlist = os.path.basename(contextmenu_item)
@@ -391,8 +398,8 @@ if (__name__ == '__main__'):
         directory = contextmenu_item
         playlist = None
     if not os.path.isdir(directory):
-        line1 = u'Run this add-on from the Context Menu over a playlist or over a folder (which contains a "%s.%s" file).' % (PLAYLIST, PLAYLIST_EXT)
-        line2 = u'The playlist should contain the images filenames and the cropping geometries, separated by a vertical bar.'
+        line1 = __localize__(32002) % (PLAYLIST, PLAYLIST_EXT)
+        line2 = __localize__(32003)
         xbmcgui.Dialog().ok(ADDONNAME, line1, line2)
     else:
         window_instance = photoFrameAddon()

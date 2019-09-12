@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="script.picture.photo-frame" name="Photo Frame" version="0.1.2" provider-name="Rigacci.Org">
+<addon id="script.picture.photo-frame" name="Photo Frame" version="0.1.3" provider-name="Rigacci.Org">
 	<requires>
 		<import addon="xbmc.python" version="2.23.0"/>
 	</requires>
@@ -9,8 +9,11 @@
 	<extension point="xbmc.addon.metadata">
 		<platform>all</platform>
 		<summary lang="en">Photo Frame Slideshow</summary>
+		<summary lang="it">Presentazione Photo Frame</summary>
 		<description lang="en">Simple slideshow addon, which uses a directory list with geometry information to re-frame every picture on-the-fly. Launch it over a directory by choosing &quot;View in Photo Frame&quot; from the context menu.
-Directory list is read from the &quot;playlist.txt &quot; file, inside the directory itself.</description>
+Directory list is read from the &quot;playlist.txt&quot; file, inside the directory itself.</description>
+		<description lang="it">Addon per presentazione di immagini. Usa una playlist con informazioni sulla geometria per ritagliare al volo ogni immagine. Viene eseguito su una cartella dalla voce &quot;Presentazione Photo Frame&quot; del menu contestuale.
+La playlist viene letta dal file &quot;playlist.txt&quot; nella stessa cartella.</description>
 		<license>GNU General Public License, v3</license>
 		<language></language>
 		<forum>https://forum.kodi.tv/showthread.php?tid=343296</forum>
@@ -24,7 +27,11 @@ Directory list is read from the &quot;playlist.txt &quot; file, inside the direc
 			<screenshot>resources/screenshot-02.jpg</screenshot>
 			<screenshot>resources/screenshot-01.jpg</screenshot>
 		</assets>
-		<news>v0.1.2 (2019-09-08)
+		<news>v0.1.3 (2019-09-12)
+ - Log level is now configurable via add-on settings.
+ - Prepare for localization.
+
+v0.1.2 (2019-09-08)
  - Add-on can now be invoked over a directory or over a playlist file (m3u extension).
  - Improved addon.py coding style.
 
@@ -38,7 +45,7 @@ v0.1.0 (2019-08-27)
 	<extension point="kodi.context.item">
 		<menu id="kodi.core.main">
 			<item library="addon.py">
-				<label>View in Photo Frame</label>
+				<label>32001</label>
 				<visible>ListItem.IsFolder + Container.Content(images)</visible>
 			</item>
 		</menu>
