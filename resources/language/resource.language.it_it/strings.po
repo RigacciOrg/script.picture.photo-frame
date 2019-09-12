@@ -1,0 +1,93 @@
+# Kodi Media Center language file
+# Addon Name: Photo Frame
+# Addon id: script.picture.photo-frame
+# Addon Provider: niccolo@rigacci.org
+msgid ""
+msgstr ""
+"Project-Id-Version: XBMC-Addons\n"
+"Report-Msgid-Bugs-To: niccolo@rigacci.org\n"
+"POT-Creation-Date: 2019-09-11 15:40+0200\n"
+"PO-Revision-Date: 2019-09-12 11:56+0200\n"
+"Last-Translator: Niccolo Rigacci <niccolo@rigacci.org>\n"
+"Language-Team: LANGUAGE\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: it_IT\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+
+msgctxt "#32001"
+msgid "View in Photo Frame"
+msgstr "Presentazione Photo Frame"
+
+msgctxt "#32002"
+msgid "Run this add-on from the Context Menu over a playlist or over a folder (which contains a \"%s.%s\" file)."
+msgstr "Eseguire l'add-on dal Menu Contestuale su una playlist o su una cartella (che contenga un file \"%s.%s\")."
+
+msgctxt "#32003"
+msgid "The playlist should contain the images filenames and the cropping geometries, separated by a vertical bar."
+msgstr "La playlist deve contenere i nomi dei file delle immagini e le geometrie di ritaglio, separate da una barra verticale."
+
+msgctxt "#32004"
+msgid "Playlist Error"
+msgstr "Errore playlist"
+
+msgctxt "#32005"
+msgid "Playlist is empty."
+msgstr "La playlist è vuota."
+
+msgctxt "#32006"
+msgid "Errors in Playlist"
+msgstr "Errori nella playlist"
+
+msgctxt "#32007"
+msgid "Auto Play"
+msgstr "Avanzamento automatico"
+
+msgctxt "#32008"
+msgid "Starting slides auto play"
+msgstr "Avvio avanzamento automatico"
+
+msgctxt "#32009"
+msgid "Stopping slides auto play"
+msgstr "Stop avanzamento automatico"
+
+msgctxt "#32010"
+msgid "Slide Time"
+msgstr "Tempo diapositiva"
+
+msgctxt "#32011"
+msgid "Setting timer to %d seconds"
+msgstr "Timer impostato a %d secondi"
+
+msgctxt "#32012"
+msgid "Bad Geometry"
+msgstr "Geometria errata"
+
+msgctxt "#32013"
+msgid "Bad geometry for image \"%s\""
+msgstr "Geometria errata per l'immagine \"%s\""
+
+msgctxt "#32014"
+msgid "Image Error"
+msgstr "Immagine danneggiata"
+
+msgctxt "#32015"
+msgid "Image \"%s\": imageToGeometry(): Exception: %s"
+msgstr "Immagine \"%s\": imageToGeometry(): Exception: %s"
+
+msgctxt "#32016"
+msgid "Window Size"
+msgstr "Immagine"
+
+msgctxt "#32017"
+msgid "Width"
+msgstr "Larghezza"
+
+msgctxt "#32018"
+msgid "Height"
+msgstr "Altezza"
+
+msgctxt "#32019"
+msgid "Log Level"
+msgstr "Livello di log"
