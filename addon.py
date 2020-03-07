@@ -392,7 +392,7 @@ class photoFrameAddon(xbmcgui.Window):
 # Addon entry point: get the Context Menu item path and run on that.
 #--------------------------------------------------------------------------
 if (__name__ == '__main__'):
-    contextmenu_item = xbmc.getInfoLabel('ListItem.FilenameAndPath')
+    contextmenu_item = xbmc.getInfoLabel('ListItem.FilenameAndPath').decode('utf-8')
     message = u'Launched with Context Menu item: "%s"' % (contextmenu_item,)
     xbmc.log(msg=message.encode('utf-8'), level=xbmc.LOGNOTICE)
     if os.path.isfile(contextmenu_item):
