@@ -3,17 +3,21 @@
 **Slideshow** add-on for **Kodi** based on **playlists** with user defined image **cropping**.
 
 An add-on for the
-**[Kodi Home Theater Software](https://kodi.tv/)**
-to play slideshows of images based on playlists. Select the 
-images you want to display and sort them; define **zoom and 
-pan** for each picture as you want to **avoid black borders** 
-and unwanted cropping or stretching.
+**[Kodi Home Theater Software](https://kodi.tv/)** (developed on 
+version 19 Matrix) to play slideshows of images based on 
+playlists. Select the images you want to display and sort them; 
+define **zoom and pan** for each picture as you want to **avoid 
+black borders** and unwanted cropping or stretching.
 
 Crop and resize is perfomed **on-the-fly**, so you don't have to 
 store copies of your images. When an image is displayed, the 
 next one is prepared in cache. Also the previous image is keept 
 in cache, so that switching to the next and to the previous 
 slides is almost immediate.
+
+The Exif.Image.UserComment tag is extracted from the image 
+(guessing the encoding between ASCII, UNICODE, JIS, Intel or 
+Motorola) and it is displayed over the image.
 
 The slideshow can be started selecting the proper **Context 
 Menu** entry over a pictures directory. Advancing in slideshow 
@@ -33,7 +37,7 @@ default is **playlist.m3u**.
 If the screen width/height ratio is different,
 the add-on searches also for names with the following
 infixes: *24x9*, *16x9*, *3x2* and *4x3*.
-You control the slideshow window size in the add-on
+You can set the playlist filename preferences into the add-on 
 settings page.
 
 The playlist contains the filename of the images and their 
@@ -66,14 +70,15 @@ Download the
 **[zip archive](https://github.com/RigacciOrg/script.picture.photo-frame/archive/master.zip)**
 and store it somewhere on the Kodi fileststem.
 
-From the **Kodi Main menu** follow the links:
-Add-ons, Search (Add-on browser), Cancel, **Install from zip file**
+From the **Kodi Main menu** follow the links: Add-ons, Search 
+(Add-on browser), Cancel, **Install from zip file**.
 
 ## Add-on Settings
 
-You have to **manually set the window size** for the slideshow. 
-Default is 1280x720, go to the add-on settings screen to change 
-it (Main Menu, Add-ons, Photo Frame, Context Menu).
+You can change various slideshow default settings: e.g. the time 
+for each slide, font, size and position of captions, etc. Go to 
+the add-on settings screen to change them (Main Menu, Add-ons, 
+Photo Frame, Context Menu).
 
 ## Running the Slideshow
 
@@ -90,27 +95,9 @@ The **keys** you can use during the slideshow are:
 * **MOVE_LEFT** or **PREV_PICTURE** Stop the slideshow, manually move to the previous image.
 * **PAUSE** or **SELECT_ITEM** Stop and start the slideshow.
 * **MOVE_UP** or **MOVE_DOWN** Increase or decrease the slideshow timer.
+* **SHOW_GUI** or **MENU** Toggle image captions (Exif UserComment).
 
 ## Kown Problems
-
-### Cannot determine the window width and heigth automatically
-
-Kodi API v.17 has a bug, explained in pull
-[#12279](https://github.com/xbmc/xbmc/pull/12279).
-
-When you ask for *xbmcgui.Window.getWidth()* and 
-*xbmcgui.Window.getHeight()* you actually get the **screen 
-size**, which is different from the **window size** (even if the 
-window is the only object which occupies the entire screen).
-
-For example: if Kodi is running at display resolution of 
-1360x768, the above API call will return 1360x768 instead of 
-1280x720, which actually is the max size of the window you can 
-use.
-
-This is why we added a Settings section in this add-on, just to 
-allow the user to specifiy the window size. The default is 
-1280x720, which should be OK for a Full HD screen.
 
 ### Not using the native screen resolution
 

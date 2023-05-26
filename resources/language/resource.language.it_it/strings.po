@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: XBMC-Addons\n"
 "Report-Msgid-Bugs-To: niccolo@rigacci.org\n"
 "POT-Creation-Date: 2019-09-11 15:40+0200\n"
-"PO-Revision-Date: 2019-09-12 11:56+0200\n"
+"PO-Revision-Date: 2023-05-21 16:59+0200\n"
 "Last-Translator: Niccolo Rigacci <niccolo@rigacci.org>\n"
 "Language-Team: LANGUAGE\n"
 "MIME-Version: 1.0\n"
@@ -77,8 +77,8 @@ msgid "Image \"%s\": imageToGeometry(): Exception: %s"
 msgstr "Immagine \"%s\": imageToGeometry(): Exception: %s"
 
 msgctxt "#32016"
-msgid "Window Size"
-msgstr "Immagine"
+msgid "Captions"
+msgstr "Didascalie"
 
 msgctxt "#32017"
 msgid "Width"
@@ -99,3 +99,59 @@ msgstr "Alcune voci della playlist contengono errori."
 msgctxt "#32021"
 msgid "image size: %dx%d"
 msgstr "dimensione immagine %dx%d"
+
+msgctxt "#32022"
+msgid "Exif UserComment"
+msgstr "Exif UserComment"
+
+msgctxt "#32023"
+msgid "Show image caption"
+msgstr "Mostra didascalia immagine"
+
+msgctxt "#32024"
+msgid "Hide image caption"
+msgstr "Nascondi didascalia immagine"
+
+msgctxt "#32025"
+msgid "Autoselect font"
+msgstr "Scelta automatica font"
+
+msgctxt "#32026"
+msgid "Preferred font size"
+msgstr "Dimensione preferita"
+
+msgctxt "#32028"
+msgid "Font name"
+msgstr "Nome font"
+
+msgctxt "#32029"
+msgid "Debug"
+msgstr "Debug"
+
+msgctxt "#32030"
+msgid "Require font style"
+msgstr "Richiedi stile carattere"
+
+msgctxt "#32031"
+msgid "Style required"
+msgstr "Stile richiesto"
+
+msgctxt "#32032"
+msgid "Slides"
+msgstr "Diapositive"
+
+msgctxt "#32033"
+msgid "Playlist basename"
+msgstr "Prefisso nome playlist"
+
+msgctxt "#32034"
+msgid "Playlist suffix"
+msgstr "Suffisso nome playlist"
+
+msgctxt "#32035"
+msgid "Vertical position"
+msgstr "Posizione verticale"
+
+msgctxt "#32036"
+msgid "Rows max number"
+msgstr "Numero righe max"
